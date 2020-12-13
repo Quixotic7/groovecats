@@ -7,12 +7,15 @@ PhysicsBody.__index = PhysicsBody
 function PhysicsBody.new(x,y)
     local p = setmetatable({}, PhysicsBody)
 
+    p.cat = nil
     p.mass = 1
     p.pos = vector2d.new(x, y)
     p.start_life = 2
     p.shape = 1 -- circle, box
-    p.radius = math.random(1,3)
-    p.life = 10
+    -- p.radius = math.random(1,3)
+
+    p.radius = 2
+    p.life = 4
     p.bounce = 1
     p.collisionBounce = 1
     p.speed = 20
@@ -20,13 +23,14 @@ function PhysicsBody.new(x,y)
     p.gravity = 4
     p.brightness = 15
     p.destroy = false
+    p.trail = true
 
     p.particleEngine = nil
 
     p.vel = vector2d.new(0,0)
 
-    p.vel.x = p.speed * math.cos(p.angle)
-    p.vel.y = p.speed * math.sin(p.angle)
+    -- p.vel.x = p.speed * math.cos(p.angle)
+    -- p.vel.y = p.speed * math.sin(p.angle)
 
     p.prevPos = p.pos
 
@@ -34,6 +38,8 @@ function PhysicsBody.new(x,y)
 
     p.collision = false
     p.bounceOccured = false
+    p.catCollision = false
+
 
 
     p.emissionRate = 10
@@ -43,7 +49,17 @@ function PhysicsBody.new(x,y)
 
     -- print("new physics obj "..x.." "..y)
 
+    p:recalc_velocity()
+
     return p
+end
+
+function PhysicsBody:recalc_velocity()
+
+    self.vel = vector2d(1,0):rotate(util.degs_to_rads(self.angle)) * self.speed
+
+    -- self.vel.x = self.speed * math.cos(self.angle)
+    -- self.vel.y = self.speed * math.sin(self.angle)
 end
 
 function PhysicsBody:burstParticles()
@@ -59,6 +75,8 @@ function PhysicsBody:burstParticles()
 
         p.size = util.linlin(0,1,1,4,math.random())
         p.gravity = 1
+        p.start_life = util.linlin(0,1,0.5,2,math.random())
+        p.life = p.start_life
         p.speed = velMag * math.random()
 
         p:calc_velocity()
@@ -68,7 +86,7 @@ function PhysicsBody:burstParticles()
 end
 
 function PhysicsBody:emitParticles(deltaTime)
-    if self.particleEngine == nil then return end
+    if self.particleEngine == nil or self.trail == false then return end
 
     self.emissionTimer = self.emissionTimer + deltaTime
 
@@ -82,6 +100,8 @@ function PhysicsBody:emitParticles(deltaTime)
 
         p.size = 1
         p.gravity = 0
+        p.start_life = 0.2
+        p.life = 0.2
         p.speed = self.vel:getmag() * 0.1
 
         p:calc_velocity()
@@ -122,6 +142,9 @@ function PhysicsBody:update(deltaTime)
 
     self:emitParticles(deltaTime)
 
+    self.catCollision = false
+
+
     -- self.brightness = util.round(util.linlin(self.start_life, 0, self.start_brightness, self.end_brightness, self.life))
 end
 
@@ -130,13 +153,15 @@ function PhysicsBody:postCollisionUpdate(deltaTime)
 
     if self.collision then
         self.life = 0
-        self.collision = false;
+        self.collision = false
 
         self:burstParticles()
 
         self.pos = self.prevPos
         self.pos = self.pos + self.vel * deltaTime
     end
+
+    self.catCollision = false
 end
 
 function PhysicsBody:pointIntersection(point)
@@ -198,6 +223,35 @@ function PhysicsBody:resolveCollision(b2)
 
         -- -- self.pos = self.prevPos
         -- -- self.vel = self.vel * -1
+    end
+end
+
+function PhysicsBody:resolveCatCollision(c)
+    local fromC = self.pos - c.pos
+    local normal = fromC:norm()
+
+
+    if PhysicsBody.circleIntersection(self.pos, c.pos, self.radius, c.size) then
+        
+
+        -- local velAlongNormal = self.vel:dot(normal)
+        -- local impulse = velAlongNormal * normal * self.collisionBounce
+
+        -- self.vel = self.vel - impulse
+
+        -- Vnew = b * ( -2*(V dot N)*N + V ) -- b == bounce
+
+
+        -- resolve by reflecting velocity around normal
+        self.vel = (-2 * (self.vel:dot(normal)) * normal + self.vel) * self.bounce
+
+        if c.personality == 2 or c.personality == 3 then
+            self.life = 0
+        end
+
+        c:bodyCollided(self)
+
+        self.catCollision = true
     end
 end
 

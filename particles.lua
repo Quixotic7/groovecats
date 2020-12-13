@@ -3,6 +3,8 @@ local ParticleEngine = include("particles/lib/particleEngine")
 local PhysicsEngine = include("particles/lib/physicsEngine")
 local Particle = include("particles/lib/particle")
 local PhysicsBody = include("particles/lib/physicsBody")
+local GrooveCat = include("particles/lib/grooveCat")
+local ParamListUtil = include("gridstep/lib/Q7ParamListUtil")
 
 thebangs = include('thebangs/lib/thebangs_engine')
 MusicUtil = require "musicutil"
@@ -17,6 +19,8 @@ local physicsEngine = nil
 -- local particle_pool = {}
 
 local physicsBodies = {}
+
+local grooveCats = {}
 
 
 local x_min = 0
@@ -35,12 +39,35 @@ local scale_names = {}
 local notes = {}
 local active_notes = {}
 
+-- local cat_names = {"wednesday", "swisher", "franky", "tiger"}
+
+local cat_names = {"wednesday", "swisher"}
+
+-- local selected_grooveCat = 1
+
+local prevSelectedCat = 0
+
+local shift2_down = false
+
+local param_edit = false
+
+local paramUtil = {}
 
 function init()
-    particleEngine = ParticleEngine.new()
     physicsEngine = PhysicsEngine.new()
+    particleEngine = ParticleEngine.new()
 
+    grooveCats[1] = GrooveCat.new(physicsEngine, particleEngine)
+    grooveCats[2] = GrooveCat.new(physicsEngine, particleEngine)
 
+    grooveCats[1].autoRotateSpeed = 0
+    grooveCats[1].syncTime = 3
+
+    grooveCats[2].personality = 3
+
+    for i, c in pairs(grooveCats) do
+        c.onMeow = onMeow
+    end
     
 
     for i = 1, #MusicUtil.SCALES do
@@ -50,6 +77,9 @@ function init()
     physicsEngine.collisionFunc = onCollision
     physicsEngine.bounceFunc = onBounce
 
+    params:add{type = "option", id = "selected_cat", name = "selected cat",
+    options = cat_names, default = 1,
+    action = function() updateSelectedCat() end}
 
     params:add_separator()
     thebangs.add_additional_synth_params()
@@ -92,10 +122,68 @@ function init()
 
     build_scale()
 
+    paramUtil = ParamListUtil.new()
+
+    paramUtil:add_option("bounce algo", 
+        function() return thebangs.options.algoNames[getCurrentCat().bounceAlgo] end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.bounceAlgo = util.clamp(c.bounceAlgo + d, 1, #thebangs.options.algoNames)
+        end
+    )
+    paramUtil:add_option("bounce amp", 
+    function() return getCurrentCat().bounceAmp end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.bounceAmp = util.clamp(c.bounceAmp + d_raw * 0.05, 0, 1)
+        end
+    )
+    paramUtil:add_option("bounce pw", 
+    function() return getCurrentCat().bouncePW end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.bouncePW = util.clamp(c.bouncePW + d_raw, 0,100)
+        end
+    )
+    paramUtil:add_option("bounce attack", 
+    function() return getCurrentCat().bounceAttack end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.bounceAttack = util.clamp(c.bounceAttack + d_raw * 0.05, 0.0001, 1)
+        end
+    )
+    paramUtil:add_option("bounce release", 
+    function() return getCurrentCat().bounceRelease end,  
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.bounceRelease = util.clamp(c.bounceRelease + d_raw * 0.05, 0.1, 3.2)
+        end
+    )
+
+    updateSelectedCat()
+
     params:set("algo", 4)
 
-    clock.run(spawn_particle_clock)
+    -- clock.run(spawn_particle_clock)
     clock.run(screen_redraw_clock)
+
+    for i, c in pairs(grooveCats) do
+        c:purr()
+    end
+end
+
+function updateSelectedCat()
+    local i = params:get("selected_cat")
+
+    if i ~= prevSelectedCat then
+        local c = grooveCats[prevSelectedCat]
+        if c ~= nil then c.selected = false end
+
+        getCurrentCat().selected = true
+    end
+
+    prevSelectedCat = i
+
 end
 
 function build_scale()
@@ -108,21 +196,25 @@ function build_scale()
 
 function onCollision(b1, b2)
 
-    local n = math.random(1,8)
+    local n = seqPos
 
     -- params:set("algo", 6)
     -- params:set("release", util.linlin(0,1,0.6,2.0, math.random()))
 
-    engine.algoIndex(6)
-    local note_num = notes[n]
-    local freq = MusicUtil.note_num_to_freq(note_num)
-    engine.hz(freq)
+    engine.algoIndex(4)
+    engine.amp(0.2)
+    engine.attack(0.2)
+    engine.release(1.0)
 
-    -- for i = 1, 3 do
-    --     local note_num = notes[((i-1) * 2) + 1 + n]
-    --     local freq = MusicUtil.note_num_to_freq(note_num)
-    --     engine.hz(freq)
-    -- end
+    -- local note_num = notes[n]
+    -- local freq = MusicUtil.note_num_to_freq(note_num)
+    -- engine.hz(freq)
+
+    for i = 1, 3 do
+        local note_num = notes[((i-1) * 2) + 1 + n]
+        local freq = MusicUtil.note_num_to_freq(note_num)
+        engine.hz(freq)
+    end
 end
 
 function onBounce(physicsBody)
@@ -131,70 +223,37 @@ function onBounce(physicsBody)
 
     -- engine.algoIndex(2)
 
+    local c = physicsBody.cat
+    engine.algoIndex(c.bounceAlgo)
+    engine.amp(c.bounceAmp)
+    engine.pw(c.bouncePW)
+    engine.attack(c.bounceAttack)
+    engine.release(c.bounceRelease)
+
     -- local note_num = notes[math.random(1,16)]
-    -- local freq = MusicUtil.note_num_to_freq(note_num)
-    -- engine.hz(freq)
+    local note_num = notes[seqPos] + 12 * octave
+    local freq = MusicUtil.note_num_to_freq(note_num)
+    engine.hz(freq)
+
+    seqPos = seqPos + 2
+    if seqPos > 8 then
+        seqPos = 1
+        loopCount = (loopCount + 1) % 4
+        if loopCount == 0 then
+            octave = (octave + 1) % 2
+        end
+    end
 end
 
+function onMeow(grooveCat)
+    engine.algoIndex(6)
+    engine.amp(0.3)
+    engine.attack(0.01)
+    engine.release(util.linlin(0,1,0.2,3.0,math.random()))
 
-function spawn_particle_clock()
-    while true do
-
-        local b = PhysicsBody.new(math.random(x_min, x_max),math.random(y_min, y_max))
-
-        b.particleEngine = particleEngine
-
-        physicsEngine:addBody(b)
-
-        -- params:set("algo", math.random(1, #thebangs.options.algoNames))
-        -- params:set("pw", math.random(1,100))
-        -- params:set("release", util.linlin(0,1,0.1,1.0, math.random()))
-
-
-        engine.algoIndex(2)
-        local note_num = notes[seqPos] + 12 * octave
-        local freq = MusicUtil.note_num_to_freq(note_num)
-        engine.hz(freq)
-
-        -- seqPos = (seqPos % 8) + 2
-
-        seqPos = seqPos + 2
-        if seqPos > 8 then
-            seqPos = 1
-            loopCount = (loopCount + 1) % 4
-            if loopCount == 0 then
-                octave = (octave + 1) % 2
-            end
-        end
-
-        -- print("Spawning physics body "..b.x)
-
-        clock.sync(1)
-
-
-
-
-
-        -- local n = math.random(2,80)
-
-        -- local spawn_x = math.random(x_min, x_max)
-        -- local spawn_y = math.random(y_min, y_max)
-
-        -- local spawn_speed = math.random()
-
-        -- for i = 1, n do
-        --     local p = GetNewParticle()
-        --     p.x = spawn_x
-        --     p.y = spawn_y
-
-        --     p.speed = math.random(5,100) * spawn_speed
-        --     p:calc_velocity()
-
-        --     table.insert(particles, p)
-        -- end
-        
-        -- clock.sleep(util.linlin(0.0,1.0,0.3,1.0,math.random()))
-    end
+    local note_num = notes[seqPos] + 12 * octave
+    local freq = MusicUtil.note_num_to_freq(note_num)
+    engine.hz(freq)
 end
 
 function screen_redraw_clock()
@@ -211,6 +270,10 @@ function screen_redraw_clock()
 
         physicsEngine:update(deltaTime)
         particleEngine:update(deltaTime)
+
+        for i, c in pairs(grooveCats) do
+            c:update(deltaTime)
+        end
         redraw()
     end
 end
@@ -219,9 +282,70 @@ function redraw()
     screen.clear()
     screen.aa(0)
 
-    particleEngine:draw()
-    physicsEngine:draw()
+    if param_edit then
+        screen.move(64, 10)
+        screen.level(15)
+        screen.text_center(cat_names[params:get("selected_cat")])
+
+        paramUtil:redraw()
+    else
+        particleEngine:draw()
+        physicsEngine:draw()
+
+        for i,c in pairs(grooveCats) do
+            c:draw()
+        end
+    end
 
     screen.update()
+end
+
+function getCurrentCat()
+    return grooveCats[params:get("selected_cat")]
+end
+
+function key(n, v)
+    if param_edit then
+        paramUtil:key(n, v)
+
+        if n == 2 and v == 1 then
+            param_edit = false
+        end
+    else
+        if n == 2 and v == 1 then
+            shift2_down = v == 1 and true or false
+        elseif n == 3 and v == 1 then
+            param_edit = true
+        end
+    end
+end
+
+function enc(n, d)
+    if n == 1 then
+        params:delta("selected_cat", d)
+    end
+
+    if param_edit then
+        paramUtil:enc(n, d)
+    else
+        
+
+        local current_cat = getCurrentCat()
+
+        if current_cat == nil then return end
+
+        if shift2_down then
+            if n == 2 then
+                current_cat:rotate(d * 5)
+            elseif n == 3 then
+            end
+        else
+            if n == 2 then
+                current_cat:translate(d, 0)
+            elseif n == 3 then
+                current_cat:translate(0, -d)
+            end
+        end
+    end
 end
 

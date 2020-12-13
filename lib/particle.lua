@@ -27,7 +27,7 @@ end
 function Particle:reset()
     self.x = 0
     self.y = 0
-    self.life = self.start_life
+    self.life = 2
     self.size = util.linlin(0,1,1,4,math.random())
     self.speed = 1
     self.gravity = 2

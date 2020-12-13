@@ -4,8 +4,9 @@ PhysicsEngine.__index = PhysicsEngine
 function PhysicsEngine.new()
     local e = setmetatable({}, PhysicsEngine)
 
-    e.iterations = 5
+    e.iterations = 1
     e.physicsBodies = {}
+    e.grooveCats = {}
     e.collisionFunc = nil
     e.bounceFunc = nil
 
@@ -16,13 +17,23 @@ function PhysicsEngine:addBody(b)
     table.insert(self.physicsBodies, b)
 end
 
+function PhysicsEngine:addCat(c)
+    table.insert(self.grooveCats, c)
+end
+
 function PhysicsEngine:update(deltaTime)
     local n = #self.physicsBodies
 
     local collisions = {}
     local collisionsB = {}
 
+    local catCollisions = {}
+
     for i = 1, n do
+        -- if self.physicsBodies[i] ~= nil then -- this shouldn't be needed
+            
+        -- end
+
         self.physicsBodies[i]:update(deltaTime)
         if self.physicsBodies[i].bounceOccured then
             if self.bounceFunc ~= nil then
@@ -50,6 +61,15 @@ function PhysicsEngine:update(deltaTime)
                     -- end
                 end
             end
+
+            for j, c in pairs(self.grooveCats) do
+                b1:resolveCatCollision(c)
+                if b1.catCollision then
+                    local cd = {b1, c}
+
+                    catCollisions[j] = cd
+                end
+            end
         end
 
         for i, b in pairs(self.physicsBodies) do
@@ -63,12 +83,23 @@ function PhysicsEngine:update(deltaTime)
         end
     end
 
+    -- for i, b in pairs(catCollisions) do
+    --     -- b[2]:bodyCollided(b[1])
+    --     -- self.grooveCats[i]:bodyCollided(b)
+    -- end
+
     -- check if bodies are dead
-    for i = 1, n do
-        if self.physicsBodies[i].life <= 0 then
+    for i, b in pairs(self.physicsBodies) do
+        if b.life <= 0 then
             self.physicsBodies[i] = nil
         end
     end
+
+    -- for i = 1, n do
+    --     if self.physicsBodies[i].life <= 0 then
+    --         self.physicsBodies[i] = nil
+    --     end
+    -- end
 
     -- cleanup table
     local j = 0
@@ -81,6 +112,10 @@ function PhysicsEngine:update(deltaTime)
 
     for i = j + 1, n do
         self.physicsBodies[i] = nil
+    end
+
+    for j, c in pairs(self.grooveCats) do
+        c:postUpdate(deltaTime)
     end
 end
 
