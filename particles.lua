@@ -124,6 +124,8 @@ function init()
 
     paramUtil = ParamListUtil.new()
 
+    paramUtil.delta_speed = 0.6
+
     paramUtil:add_option("bounce algo", 
         function() return thebangs.options.algoNames[getCurrentCat().bounceAlgo] end, 
         function(d,d_raw) 
