@@ -314,7 +314,7 @@ function key(n, v)
             param_edit = false
         end
     else
-        if n == 2 and v == 1 then
+        if n == 2 then
             shift2_down = v == 1 and true or false
         elseif n == 3 and v == 1 then
             param_edit = true
