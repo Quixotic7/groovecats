@@ -33,6 +33,7 @@ function PhysicsBody.new(x,y)
     p.prevDeltaT = 0.01
 
     p.collision = false
+    p.bounceOccured = false
 
 
     p.emissionRate = 10
@@ -107,12 +108,14 @@ function PhysicsBody:update(deltaTime)
 
     if self.pos.x - self.radius < 0 or self.pos.x + self.radius > 128 then
         self.vel.x = self.vel.x * -self.bounce
+        self.bounceOccured = true
     end
 
     if self.pos.y - self.radius < 0 then
         self.pos.y = self.radius
         self.vel.y = self.vel.y * -self.bounce
         -- print("Floor collision")
+        self.bounceOccured = true
     end
 
     self.life = self.life - deltaTime;
@@ -123,6 +126,8 @@ function PhysicsBody:update(deltaTime)
 end
 
 function PhysicsBody:postCollisionUpdate(deltaTime)
+    self.bounceOccured = false
+
     if self.collision then
         self.life = 0
         self.collision = false;
