@@ -10,6 +10,8 @@ local grooveCatImg = _path.code.."particles/img/"
 local GrooveCat = {}
 GrooveCat.__index = GrooveCat
 
+GrooveCat.SYNC_RATES = {0.25, 0.5, 1, 2, 3, 4}
+
 function GrooveCat.new(physicsEngine, particleEngine)
     local c = setmetatable({}, GrooveCat)
 
@@ -23,7 +25,17 @@ function GrooveCat.new(physicsEngine, particleEngine)
 
     c.personality = 1
 
-    c.syncTime = 4
+    c.bounce_seq = {
+        pos = 0,
+        length = 8,
+        data = {1,3,5,7,8,7,5,3,0,0,0,0,0,0,0,0}
+    }
+
+    c.octave = 0
+
+    c.probability = 100
+    c.syncMode = 6
+    c.syncTime = GrooveCat.SYNC_RATES[c.syncMode]
 
     c.pos = vector2d(32, 32)
     c.size = 4
@@ -44,15 +56,22 @@ function GrooveCat.new(physicsEngine, particleEngine)
     c.timeBetweenMegaMeow = 4
     c.lastMegaMeowTime = util.time()
 
-    c.bounceAlgo = 3
-    c.bounceAmp = 0.1
-    c.bouncePW = 50
-    c.bounceAttack = 0.0001
-    c.bounceRelease = 1.0
+    c.bounce_synth = {
+        algo = 4,
+        amp = 0.35,
+        pw = 10,
+        attack = 0.05,
+        release = 0.7
+    }
 
     c.physicsEngine:addCat(c)
 
     return c
+end
+
+function GrooveCat:changeSyncMode(newMode)
+    self.syncMode = util.clamp(newMode, 1, #GrooveCat.SYNC_RATES)
+    self.syncTime = GrooveCat.SYNC_RATES[self.syncMode]
 end
 
 -- start
@@ -76,13 +95,39 @@ function GrooveCat:purr_loop()
     end
 end
 
+function GrooveCat:set_loop_data(step, val)
+    self.bounce_seq.data[step] = val
+end
+
+-- advance a sequence whenever the furball bounces
+function GrooveCat:bounce_step()
+    local seq = self.bounce_seq
+  
+    seq.pos = seq.pos + 1
+    if seq.pos > seq.length then seq.pos = 1 end
+
+    if seq.data[seq.pos] > 0 then
+        -- Trig Probablility
+        if math.random(100) <= self.probability then
+            return seq.data[seq.pos]
+        end
+    end
+
+    return 0
+end
+
+
 function GrooveCat:meow()
-    local firePos = self.pos + self.forward * self.sizeH
+
+    local firePos = self.pos + self.forward * (self.sizeH + 2)
 
     local b = PhysicsBody.new(firePos.x, firePos.y)
 
     b.cat = self
     b.particleEngine = self.particleEngine
+
+    b.noteIndex = self:bounce_step()
+    b.octave = self.octave
 
     b.gravity = 5
     b.speed = 60
@@ -109,6 +154,9 @@ function GrooveCat:megaMeow()
 
         b.cat = self
         b.particleEngine = self.particleEngine
+
+        b.noteIndex = self:bounce_step()
+        b.octave = self.octave
 
         b.gravity = 5
         b.speed = 80
@@ -205,7 +253,13 @@ function GrooveCat:draw()
 
     if self.selected then img = img.."_selected" end
 
+    -- if self.selected then
+    --     screen.blend_mode(13)
+    -- end
+
     screen.display_png(img..".png", -4, -6)
+
+    -- screen.blend_mode(0)
 
     -- screen.rect(-self.sizeH, -self.sizeH, self.size, self.size)
     -- screen.level(0)

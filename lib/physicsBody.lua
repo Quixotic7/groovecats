@@ -9,6 +9,8 @@ function PhysicsBody.new(x,y)
 
     p.cat = nil
     p.mass = 1
+    p.noteIndex = 0
+    p.octave = 0
     p.pos = vector2d.new(x, y)
     p.start_life = 2
     p.shape = 1 -- circle, box

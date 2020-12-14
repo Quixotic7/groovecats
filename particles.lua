@@ -5,11 +5,14 @@ local Particle = include("particles/lib/particle")
 local PhysicsBody = include("particles/lib/physicsBody")
 local GrooveCat = include("particles/lib/grooveCat")
 local ParamListUtil = include("gridstep/lib/Q7ParamListUtil")
+local hsdelay = include("gridstep/lib/halfsecond")
 
 thebangs = include('thebangs/lib/thebangs_engine')
 MusicUtil = require "musicutil"
 
 engine.name = 'Thebangs'
+
+g = grid.connect()
 
 local particleEngine = nil
 local physicsEngine = nil
@@ -61,7 +64,7 @@ function init()
     grooveCats[2] = GrooveCat.new(physicsEngine, particleEngine)
 
     grooveCats[1].autoRotateSpeed = 0
-    grooveCats[1].syncTime = 3
+    grooveCats[1]:changeSyncMode(4)
 
     grooveCats[2].personality = 3
 
@@ -81,8 +84,11 @@ function init()
     options = cat_names, default = 1,
     action = function() updateSelectedCat() end}
 
+    hsdelay.init()
+    params:set("delay_enabled", 2)
+
     params:add_separator()
-    thebangs.add_additional_synth_params()
+    -- thebangs.add_additional_synth_params()
 
     params:add{type = "option", id = "scale_mode", name = "scale mode",
     options = scale_names, default = 5,
@@ -91,29 +97,29 @@ function init()
     min = 0, max = 127, default = 60, formatter = function(param) return MusicUtil.note_num_to_name(param:get(), true) end,
     action = function() build_scale() end}
 
-    cs_AMP = controlspec.new(0,1,'lin',0,0.5,'')
-    params:add{type="control",id="amp",controlspec=cs_AMP,
-        action=function(x) engine.amp(x) end}
+    -- cs_AMP = controlspec.new(0,1,'lin',0,0.5,'')
+    -- params:add{type="control",id="amp",controlspec=cs_AMP,
+    --     action=function(x) engine.amp(x) end}
 
-    cs_PW = controlspec.new(0,100,'lin',0,50,'%')
-    params:add{type="control",id="pw",controlspec=cs_PW,
-        action=function(x) engine.pw(x/100) end}
+    -- cs_PW = controlspec.new(0,100,'lin',0,50,'%')
+    -- params:add{type="control",id="pw",controlspec=cs_PW,
+    --     action=function(x) engine.pw(x/100) end}
 
-    cs_REL = controlspec.new(0.1,3.2,'lin',0,1.2,'s')
-    params:add{type="control",id="release",controlspec=cs_REL,
-        action=function(x) engine.release(x) end}
+    -- cs_REL = controlspec.new(0.1,3.2,'lin',0,1.2,'s')
+    -- params:add{type="control",id="release",controlspec=cs_REL,
+    --     action=function(x) engine.release(x) end}
 
-    cs_CUT = controlspec.new(50,5000,'exp',0,800,'hz')
-    params:add{type="control",id="cutoff",controlspec=cs_CUT,
-        action=function(x) engine.cutoff(x) end}
+    -- cs_CUT = controlspec.new(50,5000,'exp',0,800,'hz')
+    -- params:add{type="control",id="cutoff",controlspec=cs_CUT,
+    --     action=function(x) engine.cutoff(x) end}
 
-    cs_GAIN = controlspec.new(0,4,'lin',0,1,'')
-    params:add{type="control",id="gain",controlspec=cs_GAIN,
-        action=function(x) engine.gain(x) end}
+    -- cs_GAIN = controlspec.new(0,4,'lin',0,1,'')
+    -- params:add{type="control",id="gain",controlspec=cs_GAIN,
+    --     action=function(x) engine.gain(x) end}
     
-    cs_PAN = controlspec.new(-1,1, 'lin',0,0,'')
-    params:add{type="control",id="pan",controlspec=cs_PAN,
-        action=function(x) engine.pan(x) end}
+    -- cs_PAN = controlspec.new(-1,1, 'lin',0,0,'')
+    -- params:add{type="control",id="pan",controlspec=cs_PAN,
+    --     action=function(x) engine.pan(x) end}
 
     
   
@@ -126,39 +132,66 @@ function init()
 
     paramUtil.delta_speed = 0.6
 
-    paramUtil:add_option("bounce algo", 
-        function() return thebangs.options.algoNames[getCurrentCat().bounceAlgo] end, 
+    paramUtil:add_option("Sync Rate", 
+        function() return GrooveCat.SYNC_RATES[getCurrentCat().syncMode] end, 
         function(d,d_raw) 
             local c = getCurrentCat()
-            c.bounceAlgo = util.clamp(c.bounceAlgo + d, 1, #thebangs.options.algoNames)
+
+            c:changeSyncMode(c.syncMode + d)
+        end
+    )
+
+    paramUtil:add_option("RotSpeed", 
+        function() return getCurrentCat().autoRotateSpeed end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+
+            c.autoRotateSpeed = util.clamp(c.autoRotateSpeed + d_raw, -90, 90)
+        end
+    )
+
+    paramUtil:add_option("Octave", 
+        function() return getCurrentCat().octave end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+
+            c.octave = util.clamp(c.octave + d_raw, -2, 2)
+        end
+    )
+
+    paramUtil:add_option("bounce algo", 
+        function() return thebangs.options.algoNames[getCurrentCat().bounce_synth.algo] end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.bounce_synth.algo = util.clamp(c.bounce_synth.algo + d, 1, #thebangs.options.algoNames)
         end
     )
     paramUtil:add_option("bounce amp", 
-    function() return getCurrentCat().bounceAmp end, 
+    function() return getCurrentCat().bounce_synth.amp end, 
         function(d,d_raw) 
             local c = getCurrentCat()
-            c.bounceAmp = util.clamp(c.bounceAmp + d_raw * 0.05, 0, 1)
+            c.bounce_synth.amp = util.clamp(c.bounce_synth.amp + d_raw * 0.05, 0, 1)
         end
     )
     paramUtil:add_option("bounce pw", 
-    function() return getCurrentCat().bouncePW end, 
+    function() return getCurrentCat().bounce_synth.pw end, 
         function(d,d_raw) 
             local c = getCurrentCat()
-            c.bouncePW = util.clamp(c.bouncePW + d_raw, 0,100)
+            c.bounce_synth.pw = util.clamp(c.bounce_synth.pw + d_raw, 0,100)
         end
     )
     paramUtil:add_option("bounce attack", 
-    function() return getCurrentCat().bounceAttack end, 
+    function() return getCurrentCat().bounce_synth.attack end, 
         function(d,d_raw) 
             local c = getCurrentCat()
-            c.bounceAttack = util.clamp(c.bounceAttack + d_raw * 0.05, 0.0001, 1)
+            c.bounce_synth.attack = util.clamp(c.bounce_synth.attack + d_raw * 0.05, 0.0001, 1)
         end
     )
     paramUtil:add_option("bounce release", 
-    function() return getCurrentCat().bounceRelease end,  
+    function() return getCurrentCat().bounce_synth.release end,  
         function(d,d_raw) 
             local c = getCurrentCat()
-            c.bounceRelease = util.clamp(c.bounceRelease + d_raw * 0.05, 0.1, 3.2)
+            c.bounce_synth.release = util.clamp(c.bounce_synth.release + d_raw * 0.05, 0.1, 3.2)
         end
     )
 
@@ -172,6 +205,8 @@ function init()
     for i, c in pairs(grooveCats) do
         c:purr()
     end
+
+    gridredraw()
 end
 
 function updateSelectedCat()
@@ -219,6 +254,14 @@ function onCollision(b1, b2)
     end
 end
 
+function updateSynth(synthParams)
+    engine.algoIndex(synthParams.algo)
+    engine.amp(synthParams.amp)
+    engine.pw(synthParams.pw/100)
+    engine.attack(synthParams.attack)
+    engine.release(synthParams.release)
+end
+
 function onBounce(physicsBody)
     -- params:set("release", 0.25)
     -- params:set("algo", 2)
@@ -226,25 +269,32 @@ function onBounce(physicsBody)
     -- engine.algoIndex(2)
 
     local c = physicsBody.cat
-    engine.algoIndex(c.bounceAlgo)
-    engine.amp(c.bounceAmp)
-    engine.pw(c.bouncePW)
-    engine.attack(c.bounceAttack)
-    engine.release(c.bounceRelease)
 
-    -- local note_num = notes[math.random(1,16)]
-    local note_num = notes[seqPos] + 12 * octave
-    local freq = MusicUtil.note_num_to_freq(note_num)
-    engine.hz(freq)
+    local note_index = c:bounce_step()
 
-    seqPos = seqPos + 2
-    if seqPos > 8 then
-        seqPos = 1
-        loopCount = (loopCount + 1) % 4
-        if loopCount == 0 then
-            octave = (octave + 1) % 2
-        end
+    if note_index > 0 then
+        updateSynth(c.bounce_synth)
+
+        local note_num = notes[note_index] + 12 * c.octave
+        local freq = MusicUtil.note_num_to_freq(note_num)
+        engine.hz(freq)
+
+        -- -- local note_num = notes[math.random(1,16)]
+        -- local note_num = notes[seqPos] + 12 * octave
+        -- local freq = MusicUtil.note_num_to_freq(note_num)
+        -- engine.hz(freq)
+
+        -- seqPos = seqPos + 2
+        -- if seqPos > 8 then
+        --     seqPos = 1
+        --     loopCount = (loopCount + 1) % 4
+        --     if loopCount == 0 then
+        --         octave = (octave + 1) % 2
+        --     end
+        -- end
     end
+
+    gridredraw()
 end
 
 function onMeow(grooveCat)
@@ -256,6 +306,8 @@ function onMeow(grooveCat)
     local note_num = notes[seqPos] + 12 * octave
     local freq = MusicUtil.note_num_to_freq(note_num)
     engine.hz(freq)
+
+    gridredraw()
 end
 
 function screen_redraw_clock()
@@ -291,12 +343,17 @@ function redraw()
 
         paramUtil:redraw()
     else
-        particleEngine:draw()
-        physicsEngine:draw()
-
         for i,c in pairs(grooveCats) do
             c:draw()
         end
+
+        screen.blend_mode('add')
+        particleEngine:draw()
+        screen.blend_mode(0)
+
+        physicsEngine:draw()
+
+        
     end
 
     screen.update()
@@ -304,6 +361,40 @@ end
 
 function getCurrentCat()
     return grooveCats[params:get("selected_cat")]
+end
+
+function g.key(x, y, z)
+    local grid_h = g.rows
+    local c = getCurrentCat()
+
+    if z > 0 then
+        if c.bounce_seq.data[x] == 9-y then
+            c:set_loop_data(x, 0)
+        else
+            c:set_loop_data(x, 9 - y)
+        end
+        
+        gridredraw()
+    end
+end
+
+function gridredraw()
+    local grid_h = g.rows
+    g:all(0)
+
+    local c = getCurrentCat()
+
+    for x = 1, 16 do
+        if c.bounce_seq.data[x] > 0 then g:led(x, 9 - c.bounce_seq.data[x], 5) end
+    end
+
+    if c.bounce_seq.pos > 0 and c.bounce_seq.data[c.bounce_seq.pos] > 0 then
+        g:led(c.bounce_seq.pos, 9-c.bounce_seq.data[c.bounce_seq.pos], 15)
+    else
+        g:led(c.bounce_seq.pos, 1, 3)
+    end
+    
+    g:refresh()
 end
 
 function key(n, v)
