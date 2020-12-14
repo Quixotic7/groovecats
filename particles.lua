@@ -65,6 +65,10 @@ function init()
 
     grooveCats[1].autoRotateSpeed = 0
     grooveCats[1]:changeSyncMode(4)
+    grooveCats[1].pos.x = 80
+    grooveCats[1].pos.y = 40
+
+
 
     grooveCats[2].personality = 3
 
