@@ -197,7 +197,7 @@ function init()
 
     updateSelectedCat()
 
-    params:set("algo", 4)
+    -- params:set("algo", 4)
 
     -- clock.run(spawn_particle_clock)
     clock.run(screen_redraw_clock)
