@@ -33,7 +33,9 @@ function GrooveCat.new(physicsEngine, particleEngine)
 
     c.octave = 0
 
-    c.probability = 100
+    c.lSpeedMin = 60
+    c.lSpeedMax = 60
+    c.probability = 50
     c.syncMode = 6
     c.syncTime = GrooveCat.SYNC_RATES[c.syncMode]
 
@@ -57,11 +59,21 @@ function GrooveCat.new(physicsEngine, particleEngine)
     c.lastMegaMeowTime = util.time()
 
     c.bounce_synth = {
-        algo = 4,
+        algo = 3,
         amp = 0.35,
-        pw = 10,
-        attack = 0.05,
-        release = 0.7
+        pw = 40,
+        cutoff = 1800,
+        attack = 0.01,
+        release = 1.0
+    }
+
+    c.collision_synth = {
+        algo = 4,
+        amp = 0.45,
+        pw = 60,
+        cutoff = 2000,
+        attack = 0.1,
+        release = 2.0
     }
 
     c.physicsEngine:addCat(c)
@@ -86,7 +98,9 @@ function GrooveCat:purr_loop()
         clock.sync(self.syncTime)
 
         if self.personality == 1 then
-            self:meow()
+            if math.random(100) <= self.probability then
+                self:meow()
+            end
         elseif self.personality == 2 then
             if self.awake then self:meow() end
         elseif self.personality == 3 then
@@ -107,21 +121,17 @@ function GrooveCat:bounce_step()
     if seq.pos > seq.length then seq.pos = 1 end
 
     if seq.data[seq.pos] > 0 then
-        -- Trig Probablility
-        if math.random(100) <= self.probability then
-            return seq.data[seq.pos]
-        end
+        return seq.data[seq.pos]
+        -- if math.random(100) <= self.probability then
+        --     return seq.data[seq.pos]
+        -- end
     end
 
     return 0
 end
 
-
-function GrooveCat:meow()
-
-    local firePos = self.pos + self.forward * (self.sizeH + 2)
-
-    local b = PhysicsBody.new(firePos.x, firePos.y)
+function GrooveCat:getNewPhysicsBody(x, y)
+    local b = PhysicsBody.new(x, y)
 
     b.cat = self
     b.particleEngine = self.particleEngine
@@ -130,10 +140,20 @@ function GrooveCat:meow()
     b.octave = self.octave
 
     b.gravity = 5
-    b.speed = 60
+    b.speed = math.random(self.lSpeedMin, self.lSpeedMax)
     b.angle = self.rotation
-    b:recalc_velocity()
 
+    return b
+end
+
+
+function GrooveCat:meow()
+
+    local firePos = self.pos + self.forward * (self.sizeH + 2)
+
+    local b = self:getNewPhysicsBody(firePos.x, firePos.y)
+
+    b:recalc_velocity()
     self.physicsEngine:addBody(b)
 
     -- if self.onMeow ~= nil then self.onMeow(self) end
@@ -150,16 +170,8 @@ function GrooveCat:megaMeow()
 
         local firePos = self.pos + f * self.sizeH
 
-        local b = PhysicsBody.new(firePos.x, firePos.y)
+        local b = self:getNewPhysicsBody(firePos.x, firePos.y)
 
-        b.cat = self
-        b.particleEngine = self.particleEngine
-
-        b.noteIndex = self:bounce_step()
-        b.octave = self.octave
-
-        b.gravity = 5
-        b.speed = 80
         b.angle = self.rotation + i * rIncrement
         b:recalc_velocity()
 

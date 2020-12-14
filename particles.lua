@@ -64,16 +64,15 @@ function init()
     grooveCats[2] = GrooveCat.new(physicsEngine, particleEngine)
 
     grooveCats[1].autoRotateSpeed = 0
-    grooveCats[1]:changeSyncMode(4)
+    grooveCats[1]:changeSyncMode(2)
     grooveCats[1].pos.x = 80
     grooveCats[1].pos.y = 40
-
-
 
     grooveCats[2].personality = 3
 
     for i, c in pairs(grooveCats) do
         c.onMeow = onMeow
+        c.gravity = gravity
     end
     
 
@@ -136,6 +135,13 @@ function init()
 
     paramUtil.delta_speed = 0.6
 
+    paramUtil:add_option("Gravity", 
+        function() return physicsEngine.gravity end, 
+        function(d,d_raw) 
+            physicsEngine.gravity = util.clamp(physicsEngine.gravity + d_raw * 0.25, -20, 20)
+        end
+    )
+
     paramUtil:add_option("Sync Rate", 
         function() return GrooveCat.SYNC_RATES[getCurrentCat().syncMode] end, 
         function(d,d_raw) 
@@ -151,6 +157,31 @@ function init()
             local c = getCurrentCat()
 
             c.autoRotateSpeed = util.clamp(c.autoRotateSpeed + d_raw, -90, 90)
+        end
+    )
+
+    paramUtil:add_option("Probability", 
+        function() return getCurrentCat().probability end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+
+            c.probability = util.clamp(c.probability + d_raw, 0, 100)
+        end
+    )
+
+    paramUtil:add_option("LSpeedMin", 
+        function() return getCurrentCat().lSpeedMin end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.lSpeedMin = util.clamp(c.lSpeedMin + d_raw, 1, 100)
+        end
+    )
+
+    paramUtil:add_option("LSpeedMax", 
+        function() return getCurrentCat().lSpeedMax end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.lSpeedMax = util.clamp(c.lSpeedMax + d_raw, 1, 100)
         end
     )
 
@@ -184,6 +215,13 @@ function init()
             c.bounce_synth.pw = util.clamp(c.bounce_synth.pw + d_raw, 0,100)
         end
     )
+    paramUtil:add_option("bounce cutoff", 
+    function() return getCurrentCat().bounce_synth.cutoff end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.bounce_synth.cutoff = util.clamp(c.bounce_synth.cutoff + d_raw * 25, 50, 5000)
+        end
+    )
     paramUtil:add_option("bounce attack", 
     function() return getCurrentCat().bounce_synth.attack end, 
         function(d,d_raw) 
@@ -196,6 +234,49 @@ function init()
         function(d,d_raw) 
             local c = getCurrentCat()
             c.bounce_synth.release = util.clamp(c.bounce_synth.release + d_raw * 0.05, 0.1, 3.2)
+        end
+    )
+
+    paramUtil:add_option("col algo", 
+        function() return thebangs.options.algoNames[getCurrentCat().collision_synth.algo] end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.collision_synth.algo = util.clamp(c.collision_synth.algo + d, 1, #thebangs.options.algoNames)
+        end
+    )
+    paramUtil:add_option("col amp", 
+    function() return getCurrentCat().collision_synth.amp end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.collision_synth.amp = util.clamp(c.collision_synth.amp + d_raw * 0.05, 0, 1)
+        end
+    )
+    paramUtil:add_option("col pw", 
+    function() return getCurrentCat().collision_synth.pw end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.collision_synth.pw = util.clamp(c.collision_synth.pw + d_raw, 0,100)
+        end
+    )
+    paramUtil:add_option("col cutoff", 
+    function() return getCurrentCat().collision_synth.cutoff end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.collision_synth.cutoff = util.clamp(c.collision_synth.cutoff + d_raw * 25, 50, 5000)
+        end
+    )
+    paramUtil:add_option("col attack", 
+    function() return getCurrentCat().collision_synth.attack end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.collision_synth.attack = util.clamp(c.collision_synth.attack + d_raw * 0.05, 0.0001, 1)
+        end
+    )
+    paramUtil:add_option("col release", 
+    function() return getCurrentCat().collision_synth.release end,  
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.collision_synth.release = util.clamp(c.collision_synth.release + d_raw * 0.05, 0.1, 3.2)
         end
     )
 
@@ -239,29 +320,47 @@ function onCollision(b1, b2)
 
     local n = seqPos
 
+    if b1 == nil then print("b1 is nil") end
+    if b2 == nil then print("b2 is nil") end
+
+
     -- params:set("algo", 6)
     -- params:set("release", util.linlin(0,1,0.6,2.0, math.random()))
 
-    engine.algoIndex(4)
-    engine.amp(0.2)
-    engine.attack(0.2)
-    engine.release(1.0)
+    updateSynth(b1.cat.collision_synth)
+
+    local n1 = b1.cat:bounce_step()
+    local n2 = b2.cat:bounce_step()
+ 
+    local note_num = notes[n1 + n2]
+
+    local freq = MusicUtil.note_num_to_freq(note_num)
+    engine.hz(freq)
+
+    -- engine.algoIndex(4)
+    -- engine.amp(0.2)
+    -- engine.attack(0.2)
+    -- engine.release(1.0)
 
     -- local note_num = notes[n]
     -- local freq = MusicUtil.note_num_to_freq(note_num)
     -- engine.hz(freq)
 
-    for i = 1, 3 do
-        local note_num = notes[((i-1) * 2) + 1 + n]
-        local freq = MusicUtil.note_num_to_freq(note_num)
-        engine.hz(freq)
-    end
+    -- for i = 1, 3 do
+    --     -- local note_num = notes[((i-1) * 2) + 1 + n]
+
+    --     local note_num = notes[n1 + n2] + ((i-1) * 4) 
+
+    --     local freq = MusicUtil.note_num_to_freq(note_num)
+    --     engine.hz(freq)
+    -- end
 end
 
 function updateSynth(synthParams)
     engine.algoIndex(synthParams.algo)
     engine.amp(synthParams.amp)
     engine.pw(synthParams.pw/100)
+    engine.cutoff(synthParams.cutoff)
     engine.attack(synthParams.attack)
     engine.release(synthParams.release)
 end

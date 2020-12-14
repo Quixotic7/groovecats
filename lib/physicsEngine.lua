@@ -7,6 +7,7 @@ function PhysicsEngine.new()
     e.iterations = 1
     e.physicsBodies = {}
     e.grooveCats = {}
+    e.gravity = 5
     e.collisionFunc = nil
     e.bounceFunc = nil
 
@@ -33,6 +34,7 @@ function PhysicsEngine:update(deltaTime)
         -- if self.physicsBodies[i] ~= nil then -- this shouldn't be needed
             
         -- end
+        self.physicsBodies[i].gravity = self.gravity
 
         self.physicsBodies[i]:update(deltaTime)
         if self.physicsBodies[i].bounceOccured then
@@ -79,7 +81,7 @@ function PhysicsEngine:update(deltaTime)
 
     if self.collisionFunc ~= nil then
         for i, c in pairs(collisions) do
-            self.collisionFunc(c.b1, c.b2)
+            self.collisionFunc(c[1], c[2])
         end
     end
 
