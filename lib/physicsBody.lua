@@ -229,6 +229,7 @@ function PhysicsBody:resolveCollision(b2)
 end
 
 function PhysicsBody:resolveCatCollision(c)
+    if c.enabled == false then return end
     local fromC = self.pos - c.pos
     local normal = fromC:norm()
 

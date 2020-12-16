@@ -25,6 +25,8 @@ local physicsBodies = {}
 
 local grooveCats = {}
 
+local SYNTH_COUNT = 4
+
 
 local x_min = 0
 local x_max = 128
@@ -44,12 +46,16 @@ local active_notes = {}
 
 -- local cat_names = {"wednesday", "swisher", "franky", "tiger"}
 
-local cat_names = {"wednesday", "swisher"}
+local cat_names = {"wednesday", "swisher", "franky", "tigger", "max", "kittenface", "colby"}
 
 -- local selected_grooveCat = 1
 
+local selected_cat = 1
+local selected_cat_d = 1
+
 local prevSelectedCat = 0
 
+local shift1_down = false
 local shift2_down = false
 
 local param_edit = false
@@ -61,18 +67,17 @@ function init()
     particleEngine = ParticleEngine.new()
 
     grooveCats[1] = GrooveCat.new(physicsEngine, particleEngine)
-    grooveCats[2] = GrooveCat.new(physicsEngine, particleEngine)
+    -- grooveCats[2] = GrooveCat.new(physicsEngine, particleEngine)
 
     grooveCats[1].autoRotateSpeed = 0
     grooveCats[1]:changeSyncMode(2)
     grooveCats[1].pos.x = 80
     grooveCats[1].pos.y = 40
 
-    grooveCats[2].personality = 3
+    -- grooveCats[2].personality = 3
 
     for i, c in pairs(grooveCats) do
         c.onMeow = onMeow
-        c.gravity = gravity
     end
     
 
@@ -83,16 +88,16 @@ function init()
     physicsEngine.collisionFunc = onCollision
     physicsEngine.bounceFunc = onBounce
 
-    params:add{type = "option", id = "selected_cat", name = "selected cat",
-    options = cat_names, default = 1,
-    action = function() updateSelectedCat() end}
+    -- params:add{type = "option", id = "selected_cat", name = "selected cat",
+    -- options = cat_names, default = 1,
+    -- action = function() updateSelectedCat() end}
 
-    hsdelay.init()
-    params:set("delay_enabled", 2)
+    
 
-    params:add_separator()
+    -- params:add_separator()
     -- thebangs.add_additional_synth_params()
 
+    params:add_separator()
     params:add{type = "option", id = "scale_mode", name = "scale mode",
     options = scale_names, default = 5,
     action = function() build_scale() end}
@@ -100,31 +105,20 @@ function init()
     min = 0, max = 127, default = 60, formatter = function(param) return MusicUtil.note_num_to_name(param:get(), true) end,
     action = function() build_scale() end}
 
-    -- cs_AMP = controlspec.new(0,1,'lin',0,0.5,'')
-    -- params:add{type="control",id="amp",controlspec=cs_AMP,
-    --     action=function(x) engine.amp(x) end}
+    -- params:add_separator()
 
-    -- cs_PW = controlspec.new(0,100,'lin',0,50,'%')
-    -- params:add{type="control",id="pw",controlspec=cs_PW,
-    --     action=function(x) engine.pw(x/100) end}
+    params:add{ type = "control", id = "gravity", controlspec = controlspec.new(-50.0, 50.0, 'lin', 0, 5, '', 0.0025),
+        action=function(value)
+            physicsEngine.gravity = value
+        end
+    }
 
-    -- cs_REL = controlspec.new(0.1,3.2,'lin',0,1.2,'s')
-    -- params:add{type="control",id="release",controlspec=cs_REL,
-    --     action=function(x) engine.release(x) end}
+    params:add_separator()
+    hsdelay.init()
+    params:set("delay_enabled", 2)
 
-    -- cs_CUT = controlspec.new(50,5000,'exp',0,800,'hz')
-    -- params:add{type="control",id="cutoff",controlspec=cs_CUT,
-    --     action=function(x) engine.cutoff(x) end}
-
-    -- cs_GAIN = controlspec.new(0,4,'lin',0,1,'')
-    -- params:add{type="control",id="gain",controlspec=cs_GAIN,
-    --     action=function(x) engine.gain(x) end}
-    
-    -- cs_PAN = controlspec.new(-1,1, 'lin',0,0,'')
-    -- params:add{type="control",id="pan",controlspec=cs_PAN,
-    --     action=function(x) engine.pan(x) end}
-
-    
+    -- params:add_separator()
+    for i = 1,4 do addSynthParams(i) end
   
     params:add_separator()
     thebangs.add_voicer_params()
@@ -135,10 +129,26 @@ function init()
 
     paramUtil.delta_speed = 0.6
 
-    paramUtil:add_option("Gravity", 
-        function() return physicsEngine.gravity end, 
+    paramUtil:add_option("Enabled", 
+        function() return getCurrentCat().enabled and "true" or "false" end, 
         function(d,d_raw) 
-            physicsEngine.gravity = util.clamp(physicsEngine.gravity + d_raw * 0.25, -20, 20)
+            getCurrentCat().enabled = not getCurrentCat().enabled
+        end
+    )
+
+    -- paramUtil:add_option("Gravity", 
+    --     function() return physicsEngine.gravity end, 
+    --     function(d,d_raw) 
+    --         physicsEngine.gravity = util.clamp(physicsEngine.gravity + d_raw * 0.25, -20, 20)
+    --     end
+    -- )
+
+    paramUtil:add_option("Personality", 
+        function() return GrooveCat.PERONALITIES[getCurrentCat().personality] end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+
+            c.personality = util.clamp(c.personality + d, 1, #GrooveCat.PERONALITIES)
         end
     )
 
@@ -194,97 +204,44 @@ function init()
         end
     )
 
-    paramUtil:add_option("bounce algo", 
-        function() return thebangs.options.algoNames[getCurrentCat().bounce_synth.algo] end, 
+    paramUtil:add_option("Launch Synth", 
+        function() 
+            local c = getCurrentCat()
+            if c.launch_synth == 0 then return "disabled" end
+            return c.launch_synth
+        end, 
         function(d,d_raw) 
             local c = getCurrentCat()
-            c.bounce_synth.algo = util.clamp(c.bounce_synth.algo + d, 1, #thebangs.options.algoNames)
-        end
-    )
-    paramUtil:add_option("bounce amp", 
-    function() return getCurrentCat().bounce_synth.amp end, 
-        function(d,d_raw) 
-            local c = getCurrentCat()
-            c.bounce_synth.amp = util.clamp(c.bounce_synth.amp + d_raw * 0.05, 0, 1)
-        end
-    )
-    paramUtil:add_option("bounce pw", 
-    function() return getCurrentCat().bounce_synth.pw end, 
-        function(d,d_raw) 
-            local c = getCurrentCat()
-            c.bounce_synth.pw = util.clamp(c.bounce_synth.pw + d_raw, 0,100)
-        end
-    )
-    paramUtil:add_option("bounce cutoff", 
-    function() return getCurrentCat().bounce_synth.cutoff end, 
-        function(d,d_raw) 
-            local c = getCurrentCat()
-            c.bounce_synth.cutoff = util.clamp(c.bounce_synth.cutoff + d_raw * 25, 50, 5000)
-        end
-    )
-    paramUtil:add_option("bounce attack", 
-    function() return getCurrentCat().bounce_synth.attack end, 
-        function(d,d_raw) 
-            local c = getCurrentCat()
-            c.bounce_synth.attack = util.clamp(c.bounce_synth.attack + d_raw * 0.05, 0.0001, 1)
-        end
-    )
-    paramUtil:add_option("bounce release", 
-    function() return getCurrentCat().bounce_synth.release end,  
-        function(d,d_raw) 
-            local c = getCurrentCat()
-            c.bounce_synth.release = util.clamp(c.bounce_synth.release + d_raw * 0.05, 0.1, 3.2)
+            c.launch_synth = util.clamp(c.launch_synth + d, 0, SYNTH_COUNT)
         end
     )
 
-    paramUtil:add_option("col algo", 
-        function() return thebangs.options.algoNames[getCurrentCat().collision_synth.algo] end, 
+    paramUtil:add_option("Bounce Synth", 
+        function() 
+            local c = getCurrentCat()
+            if c.bounce_synth == 0 then return "disabled" end
+            return c.bounce_synth
+        end, 
         function(d,d_raw) 
             local c = getCurrentCat()
-            c.collision_synth.algo = util.clamp(c.collision_synth.algo + d, 1, #thebangs.options.algoNames)
+            c.bounce_synth = util.clamp(c.bounce_synth + d, 0, SYNTH_COUNT)
         end
     )
-    paramUtil:add_option("col amp", 
-    function() return getCurrentCat().collision_synth.amp end, 
+
+    paramUtil:add_option("Collision Synth", 
+        function() 
+            local c = getCurrentCat()
+            if c.collision_synth == 0 then return "disabled" end
+            return c.collision_synth
+        end, 
         function(d,d_raw) 
             local c = getCurrentCat()
-            c.collision_synth.amp = util.clamp(c.collision_synth.amp + d_raw * 0.05, 0, 1)
-        end
-    )
-    paramUtil:add_option("col pw", 
-    function() return getCurrentCat().collision_synth.pw end, 
-        function(d,d_raw) 
-            local c = getCurrentCat()
-            c.collision_synth.pw = util.clamp(c.collision_synth.pw + d_raw, 0,100)
-        end
-    )
-    paramUtil:add_option("col cutoff", 
-    function() return getCurrentCat().collision_synth.cutoff end, 
-        function(d,d_raw) 
-            local c = getCurrentCat()
-            c.collision_synth.cutoff = util.clamp(c.collision_synth.cutoff + d_raw * 25, 50, 5000)
-        end
-    )
-    paramUtil:add_option("col attack", 
-    function() return getCurrentCat().collision_synth.attack end, 
-        function(d,d_raw) 
-            local c = getCurrentCat()
-            c.collision_synth.attack = util.clamp(c.collision_synth.attack + d_raw * 0.05, 0.0001, 1)
-        end
-    )
-    paramUtil:add_option("col release", 
-    function() return getCurrentCat().collision_synth.release end,  
-        function(d,d_raw) 
-            local c = getCurrentCat()
-            c.collision_synth.release = util.clamp(c.collision_synth.release + d_raw * 0.05, 0.1, 3.2)
+            c.collision_synth = util.clamp(c.collision_synth + d, 0, SYNTH_COUNT)
         end
     )
 
     updateSelectedCat()
 
-    -- params:set("algo", 4)
-
-    -- clock.run(spawn_particle_clock)
     clock.run(screen_redraw_clock)
 
     for i, c in pairs(grooveCats) do
@@ -294,18 +251,73 @@ function init()
     gridredraw()
 end
 
-function updateSelectedCat()
-    local i = params:get("selected_cat")
+function addSynthParams(id)
+    local num_params = 8
+    params:add_group("Synth " .. id, num_params)
 
-    if i ~= prevSelectedCat then
+    params:add{ type = "option", id = "algo_"..id, name = "Algo", options = thebangs.options.algoNames, default = 3 }
+    params:add{ type = "control", id = "amp_"..id, name = "Amp",controlspec = controlspec.new(0, 1, 'lin', 0, 0.5, '') }
+    params:add{ type = "control", id = "pan_"..id, name = "Pan",controlspec = controlspec.new(-1, 1, 'lin', 0, 0, '') }
+    params:add{ type = "control", id = "mod1_"..id, name = "Mod1",controlspec = controlspec.new(0, 1, 'lin', 0, 0.5, '%') }
+    params:add{ type = "control", id = "mod2_"..id, name = "Mod2",controlspec = controlspec.new(0, 4, 'lin', 0, 1.0, '%') }
+    params:add{ type = "control", id = "cutoff_"..id, name = "Cutoff",controlspec = controlspec.new(50, 5000, 'exp', 0, 800, 'hz') }
+    params:add{ type = "control", id = "attack_"..id, name = "Attack",controlspec = controlspec.new(0.0001, 10, 'exp', 0, 0.01, 's') }
+    -- controlspec.new(0.1,3.2,'lin',0,1.2,'s')
+    params:add{ type = "control", id = "release_"..id, name = "Release",controlspec = controlspec.new(0.0001, 10, 'exp', 0, 1.0, 's') }
+end
+
+function updateSynth(id)
+    if id < 1 then return end
+    engine.algoIndex(params:get("algo_"..id))
+    engine.amp(params:get("amp_"..id))
+    engine.pan(params:get("pan_"..id))
+    engine.mod1(params:get("mod1_"..id))
+    engine.mod2(params:get("mod2_"..id))
+    engine.hz2(params:get("cutoff_"..id))
+    engine.attack(params:get("attack_"..id))
+    engine.release(params:get("release_"..id))
+end
+
+function cycle(value,min,max)
+    if value > max then
+        return min
+    elseif value < min then
+        return max
+    else
+        return value
+    end
+end
+
+function updateSelectedCat()
+    if selected_cat ~= prevSelectedCat then
         local c = grooveCats[prevSelectedCat]
         if c ~= nil then c.selected = false end
 
         getCurrentCat().selected = true
     end
 
-    prevSelectedCat = i
+    prevSelectedCat = selected_cat
 
+end
+
+function addNewCat()
+    if #grooveCats >= #cat_names then return end -- too many cats!
+
+    local c =  GrooveCat.new(physicsEngine, particleEngine)
+
+    c.autoRotateSpeed = 0
+    c:changeSyncMode(6)
+    c.pos.x = math.random(5, 128-5)
+    c.pos.y = math.random(5, 64-5)
+    c.onMeow = onMeow
+
+    table.insert(grooveCats, c)
+
+    c:purr()
+
+    selected_cat = #grooveCats
+    selected_cat_d = selected_cat
+    updateSelectedCat()
 end
 
 function build_scale()
@@ -322,6 +334,8 @@ function onCollision(b1, b2)
 
     if b1 == nil then print("b1 is nil") end
     if b2 == nil then print("b2 is nil") end
+
+    if b1.cat.collision_synth < 1 then return end
 
 
     -- params:set("algo", 6)
@@ -356,14 +370,7 @@ function onCollision(b1, b2)
     -- end
 end
 
-function updateSynth(synthParams)
-    engine.algoIndex(synthParams.algo)
-    engine.amp(synthParams.amp)
-    engine.pw(synthParams.pw/100)
-    engine.cutoff(synthParams.cutoff)
-    engine.attack(synthParams.attack)
-    engine.release(synthParams.release)
-end
+
 
 function onBounce(physicsBody)
     -- params:set("release", 0.25)
@@ -375,7 +382,7 @@ function onBounce(physicsBody)
 
     local note_index = c:bounce_step()
 
-    if note_index > 0 then
+    if note_index > 0  and c.bounce_synth > 0 then
         updateSynth(c.bounce_synth)
 
         local note_num = notes[note_index] + 12 * c.octave
@@ -400,15 +407,22 @@ function onBounce(physicsBody)
     gridredraw()
 end
 
-function onMeow(grooveCat)
-    engine.algoIndex(6)
-    engine.amp(0.3)
-    engine.attack(0.01)
-    engine.release(util.linlin(0,1,0.2,3.0,math.random()))
+function onMeow(grooveCat, nId)
+    if nId > 0  and grooveCat.launch_synth > 0 then
+        updateSynth(grooveCat.launch_synth)
 
-    local note_num = notes[seqPos] + 12 * octave
-    local freq = MusicUtil.note_num_to_freq(note_num)
-    engine.hz(freq)
+        local note_num = notes[nId] + 12 * grooveCat.octave
+        local freq = MusicUtil.note_num_to_freq(note_num)
+        engine.hz(freq)
+    end
+    -- engine.algoIndex(6)
+    -- engine.amp(0.3)
+    -- engine.attack(0.01)
+    -- engine.release(util.linlin(0,1,0.2,3.0,math.random()))
+
+    -- local note_num = notes[seqPos] + 12 * octave
+    -- local freq = MusicUtil.note_num_to_freq(note_num)
+    -- engine.hz(freq)
 
     gridredraw()
 end
@@ -442,7 +456,7 @@ function redraw()
     if param_edit then
         screen.move(64, 10)
         screen.level(15)
-        screen.text_center(cat_names[params:get("selected_cat")])
+        screen.text_center(cat_names[selected_cat])
 
         paramUtil:redraw()
     else
@@ -463,7 +477,7 @@ function redraw()
 end
 
 function getCurrentCat()
-    return grooveCats[params:get("selected_cat")]
+    return grooveCats[selected_cat]
 end
 
 function g.key(x, y, z)
@@ -501,6 +515,13 @@ function gridredraw()
 end
 
 function key(n, v)
+
+    if n == 1 then
+        shift1_down = v == 1
+    end
+
+
+
     if param_edit then
         paramUtil:key(n, v)
 
@@ -508,17 +529,30 @@ function key(n, v)
             param_edit = false
         end
     else
-        if n == 2 then
-            shift2_down = v == 1 and true or false
-        elseif n == 3 and v == 1 then
-            param_edit = true
+        if shift1_down then
+            if n == 2 and v == 1 then
+                local c = getCurrentCat()
+                c.enabled = not c.enabled
+            elseif n == 3 and v == 1 then
+                addNewCat()
+            end
+        else
+            if n == 2 then
+                shift2_down = v == 1
+            elseif n == 3 and v == 1 then
+                param_edit = true
+                shift2_down = false
+            end
         end
     end
 end
 
 function enc(n, d)
     if n == 1 then
-        params:delta("selected_cat", d)
+        selected_cat_d = util.clamp(selected_cat_d + d * 0.25, 1, #grooveCats)
+        -- selected_cat = cycle((selected_cat + util.clamp(d,-1,1)), 1, #grooveCats)
+        selected_cat = util.round(selected_cat_d)
+        updateSelectedCat()
     end
 
     if param_edit then

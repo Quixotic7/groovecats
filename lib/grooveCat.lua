@@ -11,6 +11,7 @@ local GrooveCat = {}
 GrooveCat.__index = GrooveCat
 
 GrooveCat.SYNC_RATES = {0.25, 0.5, 1, 2, 3, 4}
+GrooveCat.PERONALITIES = {"Lively", "Bipolar", "Sleepy"}
 
 function GrooveCat.new(physicsEngine, particleEngine)
     local c = setmetatable({}, GrooveCat)
@@ -24,6 +25,8 @@ function GrooveCat.new(physicsEngine, particleEngine)
     c.onMeow = nil
 
     c.personality = 1
+
+    c.enabled = true
 
     c.bounce_seq = {
         pos = 0,
@@ -58,23 +61,27 @@ function GrooveCat.new(physicsEngine, particleEngine)
     c.timeBetweenMegaMeow = 4
     c.lastMegaMeowTime = util.time()
 
-    c.bounce_synth = {
-        algo = 3,
-        amp = 0.35,
-        pw = 40,
-        cutoff = 1800,
-        attack = 0.01,
-        release = 1.0
-    }
+    c.launch_synth = 0
+    c.bounce_synth = 1
+    c.collision_synth = 2
 
-    c.collision_synth = {
-        algo = 4,
-        amp = 0.45,
-        pw = 60,
-        cutoff = 2000,
-        attack = 0.1,
-        release = 2.0
-    }
+    -- c.bounce_synth = {
+    --     algo = 3,
+    --     amp = 0.35,
+    --     pw = 40,
+    --     cutoff = 1800,
+    --     attack = 0.01,
+    --     release = 1.0
+    -- }
+
+    -- c.collision_synth = {
+    --     algo = 4,
+    --     amp = 0.45,
+    --     pw = 60,
+    --     cutoff = 2000,
+    --     attack = 0.1,
+    --     release = 2.0
+    -- }
 
     c.physicsEngine:addCat(c)
 
@@ -97,14 +104,16 @@ function GrooveCat:purr_loop()
     while self.purring do
         clock.sync(self.syncTime)
 
-        if self.personality == 1 then
-            if math.random(100) <= self.probability then
-                self:meow()
-            end
-        elseif self.personality == 2 then
-            if self.awake then self:meow() end
-        elseif self.personality == 3 then
+        if self.enabled then
+            if self.personality == 1 then
+                if math.random(100) <= self.probability then
+                    self:meow()
+                end
+            elseif self.personality == 2 then
+                if self.awake then self:meow() end
+            elseif self.personality == 3 then
 
+            end
         end
     end
 end
@@ -156,7 +165,7 @@ function GrooveCat:meow()
     b:recalc_velocity()
     self.physicsEngine:addBody(b)
 
-    -- if self.onMeow ~= nil then self.onMeow(self) end
+    if self.onMeow ~= nil then self.onMeow(self, self.bounce_seq.data[self.bounce_seq.pos]) end
 end
 
 function GrooveCat:megaMeow()
@@ -178,12 +187,13 @@ function GrooveCat:megaMeow()
         self.physicsEngine:addBody(b)
     end
 
-    if self.onMeow ~= nil then self.onMeow(self) end
+    if self.onMeow ~= nil then self.onMeow(self, self.bounce_seq.data[self.bounce_seq.pos]) end
 
     self.lastMegaMeowTime = util.time()
 end
 
 function GrooveCat:bodyCollided(physicsBody)
+    if self.enabled == false then return end
     self.postUpdateMeow = true;
 
     -- if self.personality == 2 then
@@ -233,6 +243,7 @@ function GrooveCat:translate(x,y)
 end
 
 function GrooveCat:draw()
+    if self.enabled == false then return end
 
     screen.move(self.pos.x, 64 - self.pos.y)
 
@@ -248,6 +259,7 @@ function GrooveCat:draw()
     screen.rotate(util.degs_to_rads(self.rotation))
 
     -- screen.rect(self.pos.x - self.sizeH, 64 - self.pos.y - self.sizeH, self.size, self.size)
+
 
     local img = grooveCatImg
     
