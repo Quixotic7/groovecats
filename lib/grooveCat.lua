@@ -65,6 +65,8 @@ function GrooveCat.new(physicsEngine, particleEngine)
     c.bounce_synth = 1
     c.collision_synth = 2
 
+    c.clock_id = nil
+
     -- c.bounce_synth = {
     --     algo = 3,
     --     amp = 0.35,
@@ -95,7 +97,7 @@ end
 
 -- start
 function GrooveCat:purr()
-    clock.run(function() GrooveCat.purr_loop(self) end)
+    self.clock_id = clock.run(function() GrooveCat.purr_loop(self) end)
 end
 
 function GrooveCat:purr_loop()
@@ -116,6 +118,16 @@ function GrooveCat:purr_loop()
             end
         end
     end
+end
+
+function GrooveCat:stop_purring()
+    self.purring = false
+
+    if self.clock_id ~= nil then
+        clock.cancel(self.clock_id)
+    end
+    
+    self.clock_id = nil
 end
 
 function GrooveCat:set_loop_data(step, val)

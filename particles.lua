@@ -27,6 +27,8 @@ local grooveCats = {}
 
 local SYNTH_COUNT = 4
 
+local is_playing = false
+
 
 local x_min = 0
 local x_max = 128
@@ -59,6 +61,8 @@ local shift1_down = false
 local shift2_down = false
 
 local param_edit = false
+
+local prev_bpm = 0
 
 local paramUtil = {}
 
@@ -244,9 +248,11 @@ function init()
 
     clock.run(screen_redraw_clock)
 
-    for i, c in pairs(grooveCats) do
-        c:purr()
-    end
+    -- for i, c in pairs(grooveCats) do
+    --     c:purr()
+    -- end
+
+    toggle_playback()
 
     gridredraw()
 end
@@ -276,6 +282,44 @@ function updateSynth(id)
     engine.hz2(params:get("cutoff_"..id))
     engine.attack(params:get("attack_"..id))
     engine.release(params:get("release_"..id))
+end
+
+function on_tempo_changed(newTempo)
+    newTempo = newTempo or clock.get_tempo()
+    prev_bpm = newTempo
+    hsdelay.tempo_changed(newTempo)
+end
+
+function toggle_playback()
+    if is_playing then
+        print("Stop purring")
+        clock.transport.stop()
+    else
+        print("Start purring")
+        clock.transport.start()
+    end
+end
+
+function clock.transport.start()
+    if is_playing then return end
+
+    is_playing = true
+
+    on_tempo_changed(clock.get_tempo())
+
+    for i, c in pairs(grooveCats) do
+        c:purr()
+    end
+end
+  
+function clock.transport.stop()
+    if is_playing == false then return end
+
+    is_playing = false
+
+    for i, c in pairs(grooveCats) do
+        c:stop_purring()
+    end
 end
 
 function cycle(value,min,max)
@@ -438,6 +482,10 @@ function screen_redraw_clock()
         local deltaTime = currentTime - prevTime
         prevTime = currentTime
 
+        if clock.get_tempo() ~= prev_bpm then
+            on_tempo_changed(prev_bpm)
+        end
+
         -- updateParticles(deltaTime)
         -- updatePhysicsBodies(deltaTime)
 
@@ -486,7 +534,7 @@ function g.key(x, y, z)
     local grid_h = g.rows
     local c = getCurrentCat()
 
-    if z > 0 then
+    if x <= 8 and z > 0 then
         if c.bounce_seq.data[x] == 9-y then
             c:set_loop_data(x, 0)
         else
@@ -494,6 +542,10 @@ function g.key(x, y, z)
         end
         
         gridredraw()
+    end
+
+    if x == 16 and y == 8 and z == 1 then
+        toggle_playback()
     end
 end
 
@@ -512,6 +564,8 @@ function gridredraw()
     else
         g:led(c.bounce_seq.pos, 1, 3)
     end
+
+    g:led(16,8, is_playing and 15 or 2)
     
     g:refresh()
 end
@@ -521,8 +575,6 @@ function key(n, v)
     if n == 1 then
         shift1_down = v == 1
     end
-
-
 
     if param_edit then
         paramUtil:key(n, v)
