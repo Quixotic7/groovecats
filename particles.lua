@@ -341,10 +341,12 @@ function onCollision(b1, b2)
     -- params:set("algo", 6)
     -- params:set("release", util.linlin(0,1,0.6,2.0, math.random()))
 
-    updateSynth(b1.cat.collision_synth)
-
     local n1 = b1.cat:bounce_step()
     local n2 = b2.cat:bounce_step()
+
+    if n1 < 1 and n2 < 1 then return end
+
+    updateSynth(b1.cat.collision_synth)
  
     local note_num = notes[n1 + n2]
 
