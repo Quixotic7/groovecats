@@ -65,6 +65,22 @@ function GrooveCat.new(physicsEngine, particleEngine)
     c.bounce_synth = 1
     c.collision_synth = 2
 
+    c.launch_midi = 0
+    c.bounce_midi = 0
+    c.collision_midi = 0
+
+
+    -- c.midi_device = 1
+    -- c.launch_midi_channel = 0
+    -- c.bounce_midi_channel = 0
+    -- c.collision_midi_channel = 0
+
+    -- c.launch_midi_length = 0.25
+    -- c.bounce_midi_length = 0.25
+    -- c.collision_midi_length = 0.25
+
+
+
     c.clock_id = nil
 
     -- c.bounce_synth = {

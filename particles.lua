@@ -6,6 +6,7 @@ local PhysicsBody = include("particles/lib/physicsBody")
 local GrooveCat = include("particles/lib/grooveCat")
 local ParamListUtil = include("gridstep/lib/Q7ParamListUtil")
 local hsdelay = include("gridstep/lib/halfsecond")
+local MidiBangs = include("particles/lib/midibangs")
 
 thebangs = include('thebangs/lib/thebangs_engine')
 MusicUtil = require "musicutil"
@@ -26,6 +27,8 @@ local physicsBodies = {}
 local grooveCats = {}
 
 local SYNTH_COUNT = 4
+local MIDI_COUNT = 16
+
 
 local is_playing = false
 
@@ -45,6 +48,8 @@ local loopCount = 0
 local scale_names = {}
 local notes = {}
 local active_notes = {}
+
+local all_midibangs = {}
 
 -- local cat_names = {"wednesday", "swisher", "franky", "tiger"}
 
@@ -69,6 +74,10 @@ local paramUtil = {}
 function init()
     physicsEngine = PhysicsEngine.new()
     particleEngine = ParticleEngine.new()
+
+    for i = 1, 4 do
+        all_midibangs[i] = MidiBangs.new(i)
+    end
 
     grooveCats[1] = GrooveCat.new(physicsEngine, particleEngine)
     -- grooveCats[2] = GrooveCat.new(physicsEngine, particleEngine)
@@ -122,7 +131,8 @@ function init()
     params:set("delay_enabled", 2)
 
     -- params:add_separator()
-    for i = 1,4 do addSynthParams(i) end
+    for i = 1,SYNTH_COUNT do addSynthParams(i) end
+    for i = 1,MIDI_COUNT do addMidiParams(i) end
   
     params:add_separator()
     thebangs.add_voicer_params()
@@ -170,7 +180,7 @@ function init()
         function(d,d_raw) 
             local c = getCurrentCat()
 
-            c.autoRotateSpeed = util.clamp(c.autoRotateSpeed + d_raw, -90, 90)
+            c.autoRotateSpeed = util.clamp(c.autoRotateSpeed + d_raw, -180, 180)
         end
     )
 
@@ -204,7 +214,7 @@ function init()
         function(d,d_raw) 
             local c = getCurrentCat()
 
-            c.octave = util.clamp(c.octave + d_raw, -2, 2)
+            c.octave = util.clamp(c.octave + d_raw, -4, 4)
         end
     )
 
@@ -243,6 +253,39 @@ function init()
             c.collision_synth = util.clamp(c.collision_synth + d, 0, SYNTH_COUNT)
         end
     )
+    paramUtil:add_option("Launch Midi", 
+        function() 
+            local c = getCurrentCat()
+            if c.launch_midi == 0 then return "disabled" end
+            return c.launch_midi
+        end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.launch_midi = util.clamp(c.launch_midi + d, 0, MIDI_COUNT)
+        end
+    )
+    paramUtil:add_option("Bounce Midi", 
+        function() 
+            local c = getCurrentCat()
+            if c.bounce_midi == 0 then return "disabled" end
+            return c.bounce_midi
+        end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.bounce_midi = util.clamp(c.bounce_midi + d, 0, MIDI_COUNT)
+        end
+    )
+    paramUtil:add_option("Collision Midi", 
+        function() 
+            local c = getCurrentCat()
+            if c.collision_midi == 0 then return "disabled" end
+            return c.collision_midi
+        end, 
+        function(d,d_raw) 
+            local c = getCurrentCat()
+            c.collision_midi = util.clamp(c.collision_midi + d, 0, MIDI_COUNT)
+        end
+    )
 
     updateSelectedCat()
 
@@ -270,6 +313,20 @@ function addSynthParams(id)
     params:add{ type = "control", id = "attack_"..id, name = "Attack",controlspec = controlspec.new(0.0001, 10, 'exp', 0, 0.01, 's') }
     -- controlspec.new(0.1,3.2,'lin',0,1.2,'s')
     params:add{ type = "control", id = "release_"..id, name = "Release",controlspec = controlspec.new(0.0001, 10, 'exp', 0, 1.0, 's') }
+end
+
+function addMidiParams(id)
+    local num_params = 5
+    params:add_group("Midi " .. id, num_params)
+
+    params:add{type="number", id="midiDevice_"..id, name="Device", min = 1, max = 4, default = 1 }
+    params:add{type="number", id="midiChannel_"..id, name="Channel", min = 0, max = 16, default = id }
+    params:add{type="number", id="midiVelMin_"..id, name="Vel Min", min = 0, max = 127, default = 60 }
+    params:add{type="number", id="midiVelMax_"..id, name="Vel Max", min = 0, max = 127, default = 120 }
+    -- params:add{type = "control", id = "midiNoteLength_"..id, name = "Note Length", controlspec = controlspec.new(0.0001, 16.0, 'exp', 1/24, 0.25, 'bt')}
+
+    params:add{type = "control", id = "midiNoteLength_"..id, name = "Note Length", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
+
 end
 
 function updateSynth(id)
@@ -372,6 +429,21 @@ function build_scale()
     end
   end
 
+function bang_note(synthId, midiId, noteNumber)
+    if noteNumber < 0 or noteNumber > 127 then return end
+
+    if synthId > 0 then
+        updateSynth(synthId)
+        local freq = MusicUtil.note_num_to_freq(noteNumber)
+        engine.hz(freq)
+    end
+    if midiId > 0 then
+        local deviceId = params:get("midiDevice_"..midiId)
+        local vel = math.random(params:get("midiVelMin_"..midiId), params:get("midiVelMax_"..midiId))
+        all_midibangs[deviceId]:bang(noteNumber, vel, params:get("midiNoteLength_"..midiId), params:get("midiChannel_"..midiId))
+    end
+end
+
 function onCollision(b1, b2)
 
     local n = seqPos
@@ -379,7 +451,7 @@ function onCollision(b1, b2)
     if b1 == nil then print("b1 is nil") end
     if b2 == nil then print("b2 is nil") end
 
-    if b1.cat.collision_synth < 1 then return end
+    if b1.cat.collision_synth < 1 and b1.cat.collision_midi < 1 then return end
 
 
     -- params:set("algo", 6)
@@ -388,14 +460,17 @@ function onCollision(b1, b2)
     local n1 = b1.cat:bounce_step()
     local n2 = b2.cat:bounce_step()
 
-    if n1 < 1 and n2 < 1 then return end
+    if n1 + n2 < 1 then return end
 
-    updateSynth(b1.cat.collision_synth)
- 
     local note_num = notes[n1 + n2]
+    bang_note(b1.cat.collision_synth, b1.cat.collision_midi, note_num)
 
-    local freq = MusicUtil.note_num_to_freq(note_num)
-    engine.hz(freq)
+    -- updateSynth(b1.cat.collision_synth)
+ 
+    -- local note_num = notes[n1 + n2]
+
+    -- local freq = MusicUtil.note_num_to_freq(note_num)
+    -- engine.hz(freq)
 
     -- engine.algoIndex(4)
     -- engine.amp(0.2)
@@ -428,12 +503,14 @@ function onBounce(physicsBody)
 
     local note_index = c:bounce_step()
 
-    if note_index > 0  and c.bounce_synth > 0 then
-        updateSynth(c.bounce_synth)
-
+    if note_index > 0 then
         local note_num = notes[note_index] + 12 * c.octave
-        local freq = MusicUtil.note_num_to_freq(note_num)
-        engine.hz(freq)
+        bang_note(c.bounce_synth, c.bounce_midi, note_num)
+
+        -- updateSynth(c.bounce_synth)
+
+        -- local freq = MusicUtil.note_num_to_freq(note_num)
+        -- engine.hz(freq)
 
         -- -- local note_num = notes[math.random(1,16)]
         -- local note_num = notes[seqPos] + 12 * octave
@@ -454,12 +531,15 @@ function onBounce(physicsBody)
 end
 
 function onMeow(grooveCat, nId)
-    if nId > 0  and grooveCat.launch_synth > 0 then
-        updateSynth(grooveCat.launch_synth)
-
+    if nId > 0 then
         local note_num = notes[nId] + 12 * grooveCat.octave
-        local freq = MusicUtil.note_num_to_freq(note_num)
-        engine.hz(freq)
+        bang_note(grooveCat.launch_synth, grooveCat.launch_midi, note_num)
+
+        -- updateSynth(grooveCat.launch_synth)
+
+        -- local note_num = notes[nId] + 12 * grooveCat.octave
+        -- local freq = MusicUtil.note_num_to_freq(note_num)
+        -- engine.hz(freq)
     end
     -- engine.algoIndex(6)
     -- engine.amp(0.3)
