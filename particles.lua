@@ -325,8 +325,8 @@ function addMidiParams(id)
     params:add{type="number", id="midiVelMax_"..id, name="Vel Max", min = 0, max = 127, default = 120 }
     -- params:add{type = "control", id = "midiNoteLength_"..id, name = "Note Length", controlspec = controlspec.new(0.0001, 16.0, 'exp', 1/24, 0.25, 'bt')}
 
-    params:add{type = "control", id = "midiNoteLength_"..id, name = "Note Length", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
-
+    params:add{type = "control", id = "midiNoteLengthMin_"..id, name = "Note Length", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
+    params:add{type = "control", id = "midiNoteLengthMax_"..id, name = "Note Length", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
 end
 
 function updateSynth(id)
@@ -440,7 +440,8 @@ function bang_note(synthId, midiId, noteNumber)
     if midiId > 0 then
         local deviceId = params:get("midiDevice_"..midiId)
         local vel = math.random(params:get("midiVelMin_"..midiId), params:get("midiVelMax_"..midiId))
-        all_midibangs[deviceId]:bang(noteNumber, vel, params:get("midiNoteLength_"..midiId), params:get("midiChannel_"..midiId))
+        local length = math.random(params:get("midiNoteLengthMin_"..midiId), params:get("midiNoteLengthMax_"..midiId))
+        all_midibangs[deviceId]:bang(noteNumber, vel, length, params:get("midiChannel_"..midiId))
     end
 end
 
