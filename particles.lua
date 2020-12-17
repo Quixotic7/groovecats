@@ -440,7 +440,7 @@ function bang_note(synthId, midiId, noteNumber)
     if midiId > 0 then
         local deviceId = params:get("midiDevice_"..midiId)
         local vel = math.random(params:get("midiVelMin_"..midiId), params:get("midiVelMax_"..midiId))
-        local length = math.random(params:get("midiNoteLengthMin_"..midiId), params:get("midiNoteLengthMax_"..midiId))
+        local length = util.linlin(0,1, params:get("midiNoteLengthMin_"..midiId), params:get("midiNoteLengthMax_"..midiId), math.random())
         all_midibangs[deviceId]:bang(noteNumber, vel, length, params:get("midiChannel_"..midiId))
     end
 end
