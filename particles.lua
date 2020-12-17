@@ -316,7 +316,7 @@ function addSynthParams(id)
 end
 
 function addMidiParams(id)
-    local num_params = 5
+    local num_params = 6
     params:add_group("Midi " .. id, num_params)
 
     params:add{type="number", id="midiDevice_"..id, name="Device", min = 1, max = 4, default = 1 }
@@ -325,8 +325,8 @@ function addMidiParams(id)
     params:add{type="number", id="midiVelMax_"..id, name="Vel Max", min = 0, max = 127, default = 120 }
     -- params:add{type = "control", id = "midiNoteLength_"..id, name = "Note Length", controlspec = controlspec.new(0.0001, 16.0, 'exp', 1/24, 0.25, 'bt')}
 
-    params:add{type = "control", id = "midiNoteLengthMin_"..id, name = "Note Length", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
-    params:add{type = "control", id = "midiNoteLengthMax_"..id, name = "Note Length", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
+    params:add{type = "control", id = "midiNoteLengthMin_"..id, name = "Length Min", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
+    params:add{type = "control", id = "midiNoteLengthMax_"..id, name = "Length Max", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
 end
 
 function updateSynth(id)
