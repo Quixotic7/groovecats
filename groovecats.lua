@@ -1,3 +1,15 @@
+-- groovecats
+-- v1.0 @quixotic7
+-- https://github.com/Quixotic7/groovecats
+--
+-- Experimental particle sequencer
+-- 
+-- ENC 1 select cat
+-- ENC 2, ENC 2 move cat
+-- KEY 2 shift mode
+-- SHIFT + ENC 2 rotate cat
+-- KEY 3 edit params for selected cat
+
 -- local Q7Util = include("gridstep/lib/Q7Util")
 local ParticleEngine = include("particles/lib/particleEngine")
 local PhysicsEngine = include("particles/lib/physicsEngine")
