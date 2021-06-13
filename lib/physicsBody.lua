@@ -1,5 +1,3 @@
-local vector2d = require("particles/lib/vector2d")
-
 local PhysicsBody = {}
 PhysicsBody.__index = PhysicsBody
 

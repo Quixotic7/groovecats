@@ -1,5 +1,3 @@
-local Particle = include("particles/lib/particle")
-
 local ParticleEngine = {}
 ParticleEngine.__index = ParticleEngine
 

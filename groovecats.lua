@@ -10,15 +10,22 @@
 -- SHIFT + ENC 2 rotate cat
 -- KEY 3 edit params for selected cat
 
--- local Q7Util = include("gridstep/lib/Q7Util")
-local ParticleEngine = include("particles/lib/particleEngine")
-local PhysicsEngine = include("particles/lib/physicsEngine")
-local Particle = include("particles/lib/particle")
-local PhysicsBody = include("particles/lib/physicsBody")
-local GrooveCat = include("particles/lib/grooveCat")
-local ParamListUtil = include("gridstep/lib/Q7ParamListUtil")
-local hsdelay = include("gridstep/lib/halfsecond")
-local MidiBangs = include("particles/lib/midibangs")
+-- Add the names of your favorite cats, max of 8
+local cat_names = {"wednesday", "swisher", "franky", "tigger", "max", "kittenface", "colby", "max"}
+
+Q7Util = include('lib/Q7Util')
+ParamListUtil = include('lib/Q7ParamListUtil')
+vector2d = include('lib/vector2d')
+tabutil = include('lib/tabutil')
+Particle = include('lib/particle')
+ParticleEngine = include('lib/particleEngine')
+PhysicsEngine = include('lib/physicsEngine')
+PhysicsBody = include('lib/physicsBody')
+GrooveCat = include('lib/grooveCat')
+
+local hsdelay = include('lib/halfsecond')
+local MidiBangs = include('lib/midibangs')
+local Grid_Events_Handler = include('lib/grid_events')
 
 thebangs = include('thebangs/lib/thebangs_engine')
 MusicUtil = require "musicutil"
@@ -65,7 +72,7 @@ local all_midibangs = {}
 
 -- local cat_names = {"wednesday", "swisher", "franky", "tiger"}
 
-local cat_names = {"wednesday", "swisher", "franky", "tigger", "max", "kittenface", "colby"}
+
 
 -- local selected_grooveCat = 1
 
@@ -83,7 +90,14 @@ local prev_bpm = 0
 
 local paramUtil = {}
 
+local grid_events = nil
+
+local grid_dirty = false
+
 function init()
+    grid_events = Grid_Events_Handler.new() -- Handles grid events to differentiate press, click, double click, hold
+    grid_events.grid_event = function (e) grid_event(e) end
+
     physicsEngine = PhysicsEngine.new()
     particleEngine = ParticleEngine.new()
 
@@ -302,6 +316,7 @@ function init()
     updateSelectedCat()
 
     clock.run(screen_redraw_clock)
+    clock.run(grid_redraw_clock) 
 
     -- for i, c in pairs(grooveCats) do
     --     c:purr()
@@ -309,7 +324,7 @@ function init()
 
     toggle_playback()
 
-    gridredraw()
+    
 end
 
 function addSynthParams(id)
@@ -411,6 +426,9 @@ function updateSelectedCat()
 
     prevSelectedCat = selected_cat
 
+end
+
+function add_default_cats()
 end
 
 function addNewCat()
@@ -540,7 +558,7 @@ function onBounce(physicsBody)
         -- end
     end
 
-    gridredraw()
+    set_grid_dirty()
 end
 
 function onMeow(grooveCat, nId)
@@ -563,7 +581,7 @@ function onMeow(grooveCat, nId)
     -- local freq = MusicUtil.note_num_to_freq(note_num)
     -- engine.hz(freq)
 
-    gridredraw()
+    set_grid_dirty()
 end
 
 function screen_redraw_clock()
@@ -589,6 +607,17 @@ function screen_redraw_clock()
             c:update(deltaTime)
         end
         redraw()
+    end
+end
+
+function grid_redraw_clock() -- our grid redraw clock
+    while true do -- while it's running...
+        if grid_dirty then
+            grid_redraw()
+            grid_dirty = false
+        end
+
+        clock.sleep(1/15) -- refresh rate
     end
 end
 
@@ -623,26 +652,35 @@ function getCurrentCat()
     return grooveCats[selected_cat]
 end
 
+function set_grid_dirty()
+    grid_dirty = true
+end
+
 function g.key(x, y, z)
-    local grid_h = g.rows
+    grid_events:key(x,y,z)
+end
+
+function grid_event(e)
     local c = getCurrentCat()
 
-    if x <= 8 and z > 0 then
-        if c.bounce_seq.data[x] == 9-y then
-            c:set_loop_data(x, 0)
+    -- sequencer
+    if e.x <= 8 and e.type == "press" then
+        if c.bounce_seq.data[e.x] == 9-e.y then
+            c:set_loop_data(e.x, 0)
         else
-            c:set_loop_data(x, 9 - y)
+            c:set_loop_data(e.x, 9 - e.y)
         end
-        
-        gridredraw()
+
+        set_grid_dirty()
     end
 
-    if x == 16 and y == 8 and z == 1 then
+    -- toggle playback
+    if e.x == 16 and e.y == 8 and e.type == "press" then
         toggle_playback()
     end
 end
 
-function gridredraw()
+function grid_redraw()
     local grid_h = g.rows
     g:all(0)
 

@@ -1,8 +1,4 @@
-local vector2d = require("particles/lib/vector2d")
-local PhysicsEngine = include("particles/lib/physicsEngine")
-local PhysicsBody = include("particles/lib/physicsBody")
-
-local grooveCatImg = _path.code.."particles/img/"
+local grooveCatImg = _path.code.."groovecats/img/"
 
 -- local personalityImages = {"grooveCat2.png", }
 
