@@ -267,4 +267,10 @@ function PhysicsBody:redraw()
     screen.fill()
 end
 
+function PhysicsBody:grid_draw(grid, x_min, x_max, y_min, y_max)
+    local grid_x, grid_y = get_grid_pos(x_min, x_max, y_min, y_max, self.pos.x, self.pos.y)
+
+    grid:led(grid_x, grid_y, 1)
+end
+
 return PhysicsBody

@@ -128,4 +128,10 @@ function PhysicsEngine:draw()
     end
 end
 
+function PhysicsEngine:grid_draw(grid, x_min, x_max, y_min, y_max)
+    for i, b in pairs(self.physicsBodies) do
+        b:grid_draw(grid, x_min, x_max, y_min, y_max)
+    end
+end
+
 return PhysicsEngine
