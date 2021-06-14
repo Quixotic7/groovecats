@@ -42,7 +42,11 @@ local settings = {}
 settings.play = {x = 16, y = 1}
 settings.sequencer = {x = 16, y = 2}
 settings.lightshow = {x = 16, y = 3}
+settings.soundout = {x = 16, y = 4}
+settings.soundout.event_modes = {"launch", "bounce", "collision"}
+settings.soundout.sound_event_ui = "launch"
 
+local grid_pages = {settings.sequencer, settings.lightshow, settings.soundout }
 local active_page = settings.sequencer
 
 local particleEngine = nil
@@ -762,6 +766,14 @@ function grid_redraw_clock() -- our grid redraw clock
     end
 end
 
+function show_overlay_message(h1, h2, time)
+    h1 = h1 and h1 or ""
+    h2 = h2 and h2 or ""
+    time = time and time or 2
+    
+    print(h1.." "..h2)
+end
+
 function redraw()
     screen.clear()
     screen.aa(0)
@@ -822,10 +834,44 @@ function toolbar_grid_event(e)
     -- toggle playback
     if is_event_at_position(e, settings.play) and e.type == "press" then toggle_playback() end
     
-    if is_event_at_position(e, settings.sequencer) and e.type == "press" then change_active_grid_page(settings.sequencer) end
+    for i, p in pairs(grid_pages) do
+        if is_event_at_position(e, p) and e.type == "press" then change_active_grid_page(p) end
+    end
     
-    -- LightShow!!!
-    if is_event_at_position(e, settings.lightshow) and e.type == "press" then change_active_grid_page(settings.lightshow) end
+    -- if is_event_at_position(e, settings.sequencer) and e.type == "press" then change_active_grid_page(settings.sequencer) end
+    
+    -- -- LightShow!!!
+    -- if is_event_at_position(e, settings.lightshow) and e.type == "press" then change_active_grid_page(settings.lightshow) end
+end
+
+function cat_grid_event(e)
+    local c = getCurrentCat()
+    
+    if e.x <= 8 then
+        if e.type == "press" then
+            if e.y == 1 then
+                c.personality = util.clamp(e.x, 1, #GrooveCat.PERONALITIES)
+                show_overlay_message("Personality", GrooveCat.PERONALITIES[c.personality])
+            elseif e.y == 2 then
+                c:changeSyncMode(e.x)
+                show_overlay_message("Sync", GrooveCat.SYNC_RATES[c.syncMode])
+            end
+        end
+    end
+end
+
+function grid_draw_cat_settings()
+    local c = getCurrentCat()
+    local ledOn = 10
+    local ledOff = 4
+    
+    for x = 1, #GrooveCat.PERONALITIES do
+        g:led(x, 1, x == c.personality and ledOn or ledOff)
+    end
+    
+    for x = 1, #GrooveCat.SYNC_RATES do
+        g:led(x, 2, x == c.syncMode and ledOn or ledOff)
+    end
 end
 
 settings.sequencer.grid_event = function(e)
@@ -835,10 +881,11 @@ settings.sequencer.grid_event = function(e)
     
     if ui_mode == "cat" then
         if e.x <= 8 and e.type == "press" then
-            local pos_x, pos_y = get_pos_from_grid(1,8,1,8,e.x,e.y)
+            cat_grid_event(e)
+            -- local pos_x, pos_y = get_pos_from_grid(1,8,1,8,e.x,e.y)
             
-            c.pos.x = pos_x
-            c.pos.y = pos_y
+            -- c.pos.x = pos_x
+            -- c.pos.y = pos_y
         end
     elseif ui_mode == "main" then
         -- sequencer
@@ -886,7 +933,7 @@ settings.lightshow.grid_event = function(e)
             end
         elseif e.type == "double_click" then
             local cats = cats_on_grid[e.x][e.y]
-
+            
             -- toggle state of cat if its the selected cat
             if cats ~= nil then
                 for i = 1, #cats do
@@ -896,6 +943,182 @@ settings.lightshow.grid_event = function(e)
                     end
                 end
             end
+        end
+    end
+end
+
+settings.soundout.grid_event = function(e)
+    grid_event_cat_selection(e)
+    
+    if e.y == 1 and e.x <= #settings.soundout.event_modes and e.type == "press" then
+        settings.soundout.sound_event_ui = settings.soundout.event_modes[e.x]
+        show_overlay_message(settings.soundout.event_modes[e.x])
+    end
+    
+    local c = getCurrentCat()
+    local ui = settings.soundout.sound_event_ui
+    
+    if ui == "launch" then
+        if e.type == "press" then
+            if e.y == 2 and e.x == 1 then 
+                c.launch_synth = 0
+                show_overlay_message("Launch Synth", "Off")
+            elseif e.y == 3 and e.x <= SYNTH_COUNT then
+                c.launch_synth = e.x
+                show_overlay_message("Launch Synth", c.launch_synth)
+            elseif e.y == 4 and e.x == 1 then 
+                c.launch_midi = 0
+                show_overlay_message("Launch Midi", "Off")
+            elseif e.y == 5 and e.x <= 8 then
+                c.launch_midi = e.x
+                show_overlay_message("Launch Midi", c.launch_midi)
+            elseif e.y == 6 and e.x <= 8 then
+                c.launch_midi = e.x + 8
+                show_overlay_message("Launch Midi", c.launch_midi)
+            end
+        end
+    elseif ui == "bounce" then
+        if e.type == "press" then
+            if e.y == 2 and e.x == 1 then 
+                c.bounce_synth = 0
+                show_overlay_message("Bounce Synth", "Off")
+            elseif e.y == 3 and e.x <= SYNTH_COUNT then
+                c.bounce_synth = e.x
+                show_overlay_message("Bounce Synth", c.bounce_synth)
+            elseif e.y == 4 and e.x == 1 then 
+                c.bounce_midi = 0
+                show_overlay_message("Bounce Midi", "Off")
+            elseif e.y == 5 and e.x <= 8 then
+                c.bounce_midi = e.x
+                show_overlay_message("Bounce Midi", c.bounce_midi)
+            elseif e.y == 6 and e.x <= 8 then
+                c.bounce_midi = e.x + 8
+                show_overlay_message("Bounce Midi", c.bounce_midi)
+            end
+        end
+    elseif ui == "collision" then
+        if e.type == "press" then
+            if e.y == 2 and e.x == 1 then 
+                c.collision_synth = 0
+                show_overlay_message("Collision Synth", "Off")
+            elseif e.y == 3 and e.x <= SYNTH_COUNT then
+                c.collision_synth = e.x
+                show_overlay_message("Collision Synth", c.collision_synth)
+            elseif e.y == 4 and e.x == 1 then 
+                c.collision_midi = 0
+                show_overlay_message("Collision Midi", "Off")
+            elseif e.y == 5 and e.x <= 8 then
+                c.collision_midi = e.x
+                show_overlay_message("Collision Midi", c.collision_midi)
+            elseif e.y == 6 and e.x <= 8 then
+                c.collision_midi = e.x + 8
+                show_overlay_message("Collision Midi", c.collision_midi)
+            end
+        end
+    end
+
+    if e.type == "press" and e.y == 8 then
+        -- c.probability = util.linlin(1, 16, 0, 100, e.x)
+
+        if e.x == 1 and c.probability > 0 then
+            c.probability = 0
+        else
+            c.probability = e.x * 6.25
+        end
+
+        show_overlay_message("Probability", c.probability)
+    end
+
+    -- Sync Rates
+    if e.type == "press" and e.x > 8 and e.x < 16 and e.y > 1 and e.y - 1 <= #GrooveCat.SYNC_RATES then
+        local gcatIndex = e.x - 8
+        grooveCats[gcatIndex]:changeSyncMode(e.y - 1)
+        show_overlay_message("Sync", GrooveCat.SYNC_RATES[grooveCats[gcatIndex].syncMode])
+    end
+end
+
+settings.soundout.grid_redraw = function()
+    grid_draw_cat_selection()
+    
+    local ledOn = 10
+    local ledOff = 5
+    
+    for x = 1, #settings.soundout.event_modes do
+        g:led(x, 1, settings.soundout.event_modes[x] == settings.soundout.sound_event_ui and ledOn or ledOff)
+    end
+
+    local c = getCurrentCat()
+    local ui = settings.soundout.sound_event_ui
+
+    if ui == "launch" then
+        if c.launch_synth == 0 then g:led(1, 2, ledOn) end
+
+        for x = 1, SYNTH_COUNT do
+            g:led(x, 3, c.launch_synth == x and ledOn or ledOff)
+        end
+
+        if c.launch_midi == 0 then g:led(1, 4, ledOn) end
+
+        for x = 1, 8 do
+            g:led(x, 5, c.launch_midi == x and ledOn or ledOff)
+
+            g:led(x, 6, c.launch_midi == x + 8 and ledOn or ledOff)
+        end
+    elseif ui == "bounce" then
+        if c.bounce_synth == 0 then g:led(1, 2, ledOn) end
+
+        for x = 1, SYNTH_COUNT do
+            g:led(x, 3, c.bounce_synth == x and ledOn or ledOff)
+        end
+
+        if c.bounce_midi == 0 then g:led(1, 4, ledOn) end
+
+        for x = 1, 8 do
+            g:led(x, 5, c.bounce_midi == x and ledOn or ledOff)
+
+            g:led(x, 6, c.bounce_midi == x + 8 and ledOn or ledOff)
+        end
+    elseif ui == "collision" then
+        if c.collision_synth == 0 then g:led(1, 2, ledOn) end
+
+        for x = 1, SYNTH_COUNT do
+            g:led(x, 3, c.collision_synth == x and ledOn or ledOff)
+        end
+
+        if c.collision_midi == 0 then g:led(1, 4, ledOn) end
+
+        for x = 1, 8 do
+            g:led(x, 5, c.collision_midi == x and ledOn or ledOff)
+
+            g:led(x, 6, c.collision_midi == x + 8 and ledOn or ledOff)
+        end
+    end
+
+    -- probabilities
+
+    -- for x = 9, 15 do
+    --     local gcat = grooveCats[x-8]
+
+    --     local grid_prob = util.linlin(0, 100, 0, 7, gcat.probability)
+
+    --     for y = 1, grid_prob do
+    --         g:led(x, 9 - y, gcat.enabled and 10 or 2)
+    --     end
+    -- end
+
+    local grid_prob = util.round(c.probability / 6.25)
+    -- local grid_prob = util.linlin(0, 100, 1, 16, c.probability)
+
+    for x = 1, grid_prob do
+        g:led(x, 8, ledOn)
+    end
+
+    -- sync Rates
+    for x = 9, 15 do
+        local gcat = grooveCats[x-8]
+
+        for j = 1, #GrooveCat.SYNC_RATES do
+            g:led(x, j + 1, gcat.syncMode == j and 10 or 2)
         end
     end
 end
@@ -913,10 +1136,6 @@ function grid_event_cat_selection(e)
             ui_mode = "main"
         end
     end
-end
-
-function get_cat_at_grid_pos(x,y)
-    
 end
 
 function grid_draw_cat_selection()
@@ -945,8 +1164,12 @@ function grid_draw_toolbar()
     local activePageLED = 6
     local inactivePageLED = 2
     
-    g:led(settings.sequencer.x, settings.sequencer.y, is_page_active(settings.sequencer) and activePageLED or inactivePageLED)
-    g:led(settings.lightshow.x, settings.lightshow.y, is_page_active(settings.lightshow) and activePageLED or inactivePageLED)
+    for i, p in pairs(grid_pages) do
+        g:led(p.x, p.y, is_page_active(p) and activePageLED or inactivePageLED)
+    end
+    
+    -- g:led(settings.sequencer.x, settings.sequencer.y, is_page_active(settings.sequencer) and activePageLED or inactivePageLED)
+    -- g:led(settings.lightshow.x, settings.lightshow.y, is_page_active(settings.lightshow) and activePageLED or inactivePageLED)
 end
 
 function is_page_active(page)
@@ -971,7 +1194,7 @@ settings.sequencer.grid_redraw = function()
         end
         
     elseif ui_mode == "cat" then
-        grid_draw_scene(1,8,1,8, collision_events_half)
+        grid_draw_cat_settings()
     end
 end
 
@@ -979,6 +1202,8 @@ settings.lightshow.grid_redraw = function()
     grid_draw_scene(1,15,2,8, collision_events_full)
     grid_draw_cat_selection()
 end
+
+
 
 -- draws the scene to the grid
 function grid_draw_scene(x_min, x_max, y_min, y_max, collisionEventsTable)
