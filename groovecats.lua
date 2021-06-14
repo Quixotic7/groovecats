@@ -11,8 +11,10 @@
 -- KEY 3 edit params for selected cat
 
 -- Add the names of your favorite cats, max of 8
-local cat_names = {"wednesday", "swisher", "franky", "tigger", "max", "kittenface", "colby", "max"}
-local MAX_CATS = 8
+local cat_names = {"wednesday", "swisher", "franky", "tigger", "max", "kittenface", "colby"}
+
+
+local MAX_CATS = 7
 
 Q7Util = include('lib/Q7Util')
 ParamListUtil = include('lib/Q7ParamListUtil')
@@ -35,6 +37,13 @@ MusicUtil = require "musicutil"
 engine.name = 'Thebangs'
 
 g = grid.connect()
+
+local settings = {}
+settings.play = {x = 16, y = 1}
+settings.sequencer = {x = 16, y = 2}
+settings.lightshow = {x = 16, y = 3}
+
+local active_page = settings.sequencer
 
 local particleEngine = nil
 local physicsEngine = nil
@@ -110,14 +119,18 @@ local wall_down = 64 - wall_padding
 local collision_events_full = {}
 local collision_events_half = {}
 
+local cats_on_grid = {}
+
 function init()
     grid_events = Grid_Events_Handler.new() -- Handles grid events to differentiate press, click, double click, hold
     grid_events.grid_event = function (e) grid_event(e) end
-
+    
+    change_active_grid_page(settings.sequencer)
+    
     for x = 1, 16 do
         collision_events_full[x] = {}
     end
-
+    
     for x = 1, 8 do
         collision_events_half[x] = {}
     end
@@ -506,6 +519,23 @@ function addNewCat()
     -- updateSelectedCat()
 end
 
+function build_cats_on_grid()
+    cats_on_grid = {}
+    for x = 1, 15 do
+        cats_on_grid[x] = {}
+    end
+    
+    for i,c in pairs(grooveCats) do
+        local grid_x, grid_y = get_grid_pos(1, 15, 2, 8, c.pos.x, c.pos.y)
+        
+        if cats_on_grid[grid_x][grid_y] == nil then
+            cats_on_grid[grid_x][grid_y] = {}
+        end
+        
+        table.insert(cats_on_grid[grid_x][grid_y], i)
+    end
+end
+
 function build_scale()
     notes = MusicUtil.generate_scale_of_length(params:get("root_note"), params:get("scale_mode"), 16)
     local num_to_add = 16 - #notes
@@ -550,9 +580,9 @@ function onCollision(b1, b2)
     
     local note_num = notes[n1 + n2]
     bang_note(b1.cat.collision_synth, b1.cat.collision_midi, note_num)
-
+    
     add_collision_event(b1.pos.x, b1.pos.y)
-
+    
     -- updateSynth(b1.cat.collision_synth)
     
     -- local note_num = notes[n1 + n2]
@@ -581,12 +611,12 @@ end
 
 function add_collision_event(pos_x, pos_y)
     intern_add_collision_event(collision_events_half, 1, 8, 1, 8, pos_x, pos_y)
-    intern_add_collision_event(collision_events_full, 1, 16, 1, 8, pos_x, pos_y)
+    intern_add_collision_event(collision_events_full, 1, 15, 2, 8, pos_x, pos_y)
 end
 
 function intern_add_collision_event(eventsTable, x_min, x_max, y_min, y_max, pos_x, pos_y)
     local grid_x, grid_y = get_grid_pos(x_min, x_max, y_min, y_max, pos_x, pos_y)
-
+    
     if eventsTable[grid_x][grid_y] == nil then
         eventsTable[grid_x][grid_y] = CollisionEvent.new()
     else
@@ -612,9 +642,9 @@ function intern_update_collision_events(eventsTable, x_max, y_max)
     end
 end
 
-function grid_draw_collision_events(eventsTable, x_max, y_max)
-    for x = 1, x_max do
-        for y = 1, y_max do
+function grid_draw_collision_events(eventsTable, x_min, x_max, y_min, y_max)
+    for x = x_min, x_max do
+        for y = y_min, y_max do
             if eventsTable[x][y] ~= nil then
                 g:led(x, y, eventsTable[x][y].led_level)
             end
@@ -723,9 +753,9 @@ function grid_redraw_clock() -- our grid redraw clock
             -- grid_redraw()
             grid_dirty = false
         end
-
+        
         update_collision_events()
-
+        
         grid_redraw()
         
         clock.sleep(1/15) -- refresh rate
@@ -767,126 +797,196 @@ function set_grid_dirty()
     grid_dirty = true
 end
 
+function change_active_grid_page(page)
+    if page == nil then return end
+    active_page = page
+end
+
 function g.key(x, y, z)
     grid_events:key(x,y,z)
 end
 
+function is_event_at_position(e, pos)
+    return (e.x == pos.x and e.y == pos.y)
+end
+
 function grid_event(e)
+    active_page.grid_event(e)
+    
+    toolbar_grid_event(e)
+    
+    set_grid_dirty()
+end
+
+function toolbar_grid_event(e)
+    -- toggle playback
+    if is_event_at_position(e, settings.play) and e.type == "press" then toggle_playback() end
+    
+    if is_event_at_position(e, settings.sequencer) and e.type == "press" then change_active_grid_page(settings.sequencer) end
+    
+    -- LightShow!!!
+    if is_event_at_position(e, settings.lightshow) and e.type == "press" then change_active_grid_page(settings.lightshow) end
+end
+
+settings.sequencer.grid_event = function(e)
+    grid_event_cat_selection(e)
+    
     local c = getCurrentCat()
     
-    if ui_mode == "lightshow" then
-        
-        -- toggle playback
-        if e.x == 16 and e.y == 8 and e.type == "press" then
-            toggle_playback()
+    if ui_mode == "cat" then
+        if e.x <= 8 and e.type == "press" then
+            local pos_x, pos_y = get_pos_from_grid(1,8,1,8,e.x,e.y)
+            
+            c.pos.x = pos_x
+            c.pos.y = pos_y
         end
-        
-        -- LightShow!!!
-        if e.x == 15 and e.y == 8 and e.type == "press" then
-            ui_mode = "main"
-        end
-        
-    else
-        
-        -- cats
-        if e.y == 1 and e.x > 8 then
-            local cat_id = e.x - 8
-            if e.type == "press" then
-                select_cat(cat_id)
-            elseif e.type == "double_click" then
-                toggle_cat_enable(cat_id)
-            elseif e.type == "hold" then
-                ui_mode = "cat"
-            elseif e.type == "release" and cat_id == selected_cat then
-                ui_mode = "main"
+    elseif ui_mode == "main" then
+        -- sequencer
+        if e.x <= 8 and e.type == "press" then
+            if c.bounce_seq.data[e.x] == 9-e.y then
+                c:set_loop_data(e.x, 0)
+            else
+                c:set_loop_data(e.x, 9 - e.y)
             end
         end
-        
-        if ui_mode == "cat" then
+    end
+end
+
+settings.lightshow.grid_event = function(e)
+    grid_event_cat_selection(e)
+    
+    build_cats_on_grid()
+    
+    local c = getCurrentCat()
+    
+    if e.x < 16 and e.y > 1 then
+        local catIndex = -1
+        if e.type == "press" then
+            -- look for cats at grid position
+            local cats = cats_on_grid[e.x][e.y]
             
-            if e.x <= 8 and e.type == "press" then
-                local pos_x, pos_y = get_pos_from_grid(1,8,1,8,e.x,e.y)
+            if cats ~= nil then
+                for i = 1, #cats do
+                    local j = cats[i]
+                    
+                    if j ~= selected_cat and grooveCats[j].enabled then
+                        catIndex = j
+                        break
+                    end
+                end
+            end
+            
+            if catIndex >= 0 then -- select the cat
+                select_cat(catIndex)
+            else -- move selected cat
+                local pos_x, pos_y = get_pos_from_grid(1,15,2,8,e.x,e.y)
                 
                 c.pos.x = pos_x
                 c.pos.y = pos_y
             end
-            
-        elseif ui_mode == "main" then
-            -- sequencer
-            if e.x <= 8 and e.type == "press" then
-                if c.bounce_seq.data[e.x] == 9-e.y then
-                    c:set_loop_data(e.x, 0)
-                else
-                    c:set_loop_data(e.x, 9 - e.y)
+        elseif e.type == "double_click" then
+            local cats = cats_on_grid[e.x][e.y]
+
+            -- toggle state of cat if its the selected cat
+            if cats ~= nil then
+                for i = 1, #cats do
+                    if cats[i] == selected_cat then
+                        grooveCats[cats[i]].enabled = not grooveCats[cats[i]].enabled
+                        break
+                    end
                 end
-            end
-            
-            -- toggle playback
-            if e.x == 16 and e.y == 8 and e.type == "press" then
-                toggle_playback()
-            end
-            
-            -- LightShow!!!
-            if e.x == 15 and e.y == 8 and e.type == "press" then
-                ui_mode = "lightshow"
             end
         end
     end
+end
+
+function grid_event_cat_selection(e)
+    if e.y == 1 and e.x > 8 and e.x < 16 then
+        local cat_id = e.x - 8
+        if e.type == "press" then
+            select_cat(cat_id)
+        elseif e.type == "double_click" then
+            toggle_cat_enable(cat_id)
+        elseif e.type == "hold" then
+            ui_mode = "cat"
+        elseif e.type == "release" and cat_id == selected_cat then
+            ui_mode = "main"
+        end
+    end
+end
+
+function get_cat_at_grid_pos(x,y)
     
-    set_grid_dirty()
+end
+
+function grid_draw_cat_selection()
+    for x = 9, 15 do
+        local cat_id = x - 8
+        local trackCat = grooveCats[cat_id]
+        
+        g:led(x, 1, get_cat_led_level(cat_id))
+    end
 end
 
 function grid_redraw()
     local grid_h = g.rows
     g:all(0)
     
-    local c = getCurrentCat()
-    
-    if ui_mode == "lightshow" then
-        grid_draw_scene(1,16,1,8, collision_events_full)
-        
-        g:led(15,8, 4) -- exit lightshow
-        g:led(16,8, is_playing and 4 or 2) -- play button
-    else
-        -- cat selection
-        for x = 9, 16 do
-            local cat_id = x - 8
-            local trackCat = grooveCats[cat_id]
-            
-            g:led(x, 1, get_cat_led_level(cat_id))
-        end
-        
-        
-        if ui_mode == "main" then
-            -- sequencer
-            for x = 1, 8 do
-                if c.bounce_seq.data[x] > 0 then g:led(x, 9 - c.bounce_seq.data[x], 5) end
-            end
-            
-            if c.bounce_seq.pos > 0 and c.bounce_seq.data[c.bounce_seq.pos] > 0 then
-                g:led(c.bounce_seq.pos, 9-c.bounce_seq.data[c.bounce_seq.pos], 15)
-            else
-                g:led(c.bounce_seq.pos, 1, 3)
-            end
-            
-            -- Play button
-            g:led(16,8, is_playing and 15 or 2)
-            
-        elseif ui_mode == "cat" then
-            grid_draw_scene(1,8,1,8, collision_events_half)
-        end 
-    end
+    active_page.grid_redraw()
+    grid_draw_toolbar()
     
     g:refresh()
+end
+
+function grid_draw_toolbar()
+    
+    g:led(settings.play.x, settings.play.y, is_playing and 10 or 2) -- play button
+    
+    local activePageLED = 6
+    local inactivePageLED = 2
+    
+    g:led(settings.sequencer.x, settings.sequencer.y, is_page_active(settings.sequencer) and activePageLED or inactivePageLED)
+    g:led(settings.lightshow.x, settings.lightshow.y, is_page_active(settings.lightshow) and activePageLED or inactivePageLED)
+end
+
+function is_page_active(page)
+    return page == active_page
+end
+
+settings.sequencer.grid_redraw = function()
+    grid_draw_cat_selection()
+    
+    local c = getCurrentCat()
+    
+    if ui_mode == "main" then
+        -- sequencer
+        for x = 1, 8 do
+            if c.bounce_seq.data[x] > 0 then g:led(x, 9 - c.bounce_seq.data[x], 5) end
+        end
+        
+        if c.bounce_seq.pos > 0 and c.bounce_seq.data[c.bounce_seq.pos] > 0 then
+            g:led(c.bounce_seq.pos, 9-c.bounce_seq.data[c.bounce_seq.pos], 15)
+        else
+            g:led(c.bounce_seq.pos, 1, 3)
+        end
+        
+    elseif ui_mode == "cat" then
+        grid_draw_scene(1,8,1,8, collision_events_half)
+    end
+end
+
+settings.lightshow.grid_redraw = function()
+    grid_draw_scene(1,15,2,8, collision_events_full)
+    grid_draw_cat_selection()
 end
 
 -- draws the scene to the grid
 function grid_draw_scene(x_min, x_max, y_min, y_max, collisionEventsTable)
     physicsEngine:grid_draw(g, x_min, x_max, y_min, y_max)
-
-    grid_draw_collision_events(collisionEventsTable, x_max, y_max)
     
-    for cat_id = 1, 8 do
+    grid_draw_collision_events(collisionEventsTable, x_min, x_max, y_min, y_max)
+    
+    for cat_id = 1, MAX_CATS do
         local gridCat = grooveCats[cat_id]
         
         if gridCat.enabled or gridCat.selected then 
