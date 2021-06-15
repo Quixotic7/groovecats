@@ -26,6 +26,7 @@ PhysicsEngine = include('lib/physicsEngine')
 PhysicsBody = include('lib/physicsBody')
 GrooveCat = include('lib/grooveCat')
 CollisionEvent = include('lib/collision_event')
+GridFader = include('lib/gridfader')
 
 local hsdelay = include('lib/halfsecond')
 local MidiBangs = include('lib/midibangs')
@@ -38,15 +39,105 @@ engine.name = 'Thebangs'
 
 g = grid.connect()
 
+local controlSpecs = {}
+controlSpecs.amp = controlspec.new(0, 1, 'lin', 0, 0.5, '')
+controlSpecs.pan = controlspec.new(-1, 1, 'lin', 0, 0, '') 
+controlSpecs.mod1 = controlspec.new(0, 1, 'lin', 0, 0.5, '%')
+controlSpecs.mod2 = controlspec.new(0, 4, 'lin', 0, 1.0, '%')
+controlSpecs.cutoff = controlspec.new(50, 5000, 'exp', 0, 800, 'hz')
+controlSpecs.attack = controlspec.new(0.0001, 10, 'exp', 0, 0.01, 's')
+controlSpecs.release = controlspec.new(0.0001, 10, 'exp', 0, 1.0, 's')
+
 local settings = {}
 settings.play = {x = 16, y = 1}
-settings.sequencer = {x = 16, y = 2}
-settings.lightshow = {x = 16, y = 3}
+-- setup grid pages
+settings.lightshow = {x = 16, y = 2}
+settings.sequencer = {x = 16, y = 3}
 settings.soundout = {x = 16, y = 4}
 settings.soundout.event_modes = {"launch", "bounce", "collision"}
 settings.soundout.sound_event_ui = "launch"
+settings.synths = {x = 16, y = 5}
+settings.synths.selected = 1
 
-local grid_pages = {settings.sequencer, settings.lightshow, settings.soundout }
+-- settings.synths.mod1fader = GridFader.new("vert", 9, 8, 8, true)
+-- algo
+settings.synths.algoFader = GridFader.new("horz", 6, 1, 8, false, true)
+settings.synths.algoFader.get_updated_value = function ()
+    return params:get("algo_"..settings.synths.selected)
+end
+settings.synths.algoFader.on_value_changed = function (newVal) 
+    -- print("Algo "..newVal)
+    params:set("algo_"..settings.synths.selected, newVal) 
+end
+-- amp
+settings.synths.ampfader = GridFader.new("horz", 1, 2, 15, false)
+settings.synths.ampfader.get_updated_value = function ()
+    return controlSpecs.amp:unmap(params:get("amp_"..settings.synths.selected))
+end
+settings.synths.ampfader.on_value_changed = function (newVal) 
+    params:set("amp_"..settings.synths.selected, controlSpecs.amp:map(newVal)) 
+end
+-- pan
+settings.synths.panfader = GridFader.new("horz", 1, 3, 15, true)
+settings.synths.panfader.get_updated_value = function ()
+    return controlSpecs.pan:unmap(params:get("pan_"..settings.synths.selected))
+end
+settings.synths.panfader.on_value_changed = function (newVal) 
+    params:set("pan_"..settings.synths.selected, controlSpecs.pan:map(newVal)) 
+end
+-- mod1
+settings.synths.mod1fader = GridFader.new("horz", 1, 4, 15, false)
+settings.synths.mod1fader.get_updated_value = function ()
+    return controlSpecs.mod1:unmap(params:get("mod1_"..settings.synths.selected))
+end
+settings.synths.mod1fader.on_value_changed = function (newVal) 
+    params:set("mod1_"..settings.synths.selected, controlSpecs.mod1:map(newVal)) 
+end
+-- mod2
+settings.synths.mod2fader = GridFader.new("horz", 1, 5, 15, false)
+settings.synths.mod2fader.get_updated_value = function ()
+    return controlSpecs.mod2:unmap(params:get("mod2_"..settings.synths.selected))
+end
+settings.synths.mod2fader.on_value_changed = function (newVal) 
+    params:set("mod2_"..settings.synths.selected, controlSpecs.mod2:map(newVal)) 
+end
+-- cutoff
+settings.synths.cutoffFader = GridFader.new("horz", 1, 6, 15, false)
+settings.synths.cutoffFader.get_updated_value = function ()
+    return controlSpecs.cutoff:unmap(params:get("cutoff_"..settings.synths.selected))
+end
+settings.synths.cutoffFader.on_value_changed = function (newVal) 
+    params:set("cutoff_"..settings.synths.selected, controlSpecs.cutoff:map(newVal)) 
+end
+-- attack
+settings.synths.attackFader = GridFader.new("horz", 1, 7, 15, false)
+settings.synths.attackFader.get_updated_value = function ()
+    return controlSpecs.attack:unmap(params:get("attack_"..settings.synths.selected))
+end
+settings.synths.attackFader.on_value_changed = function (newVal) 
+    params:set("attack_"..settings.synths.selected, controlSpecs.attack:map(newVal)) 
+end
+-- release
+settings.synths.releaseFader = GridFader.new("horz", 1, 8, 15, false)
+settings.synths.releaseFader.get_updated_value = function ()
+    return controlSpecs.release:unmap(params:get("release_"..settings.synths.selected))
+end
+settings.synths.releaseFader.on_value_changed = function (newVal) 
+    params:set("release_"..settings.synths.selected, controlSpecs.release:map(newVal)) 
+end
+
+settings.synths.faders = {
+    settings.synths.algoFader,
+    settings.synths.ampfader,
+    settings.synths.panfader, 
+    settings.synths.mod1fader, 
+    settings.synths.mod2fader,
+    settings.synths.cutoffFader,  
+    settings.synths.attackFader,  
+    settings.synths.releaseFader
+}
+
+local grid_pages = {settings.lightshow, settings.sequencer, settings.soundout, settings.synths }
 local active_page = settings.sequencer
 
 local particleEngine = nil
@@ -129,7 +220,7 @@ function init()
     grid_events = Grid_Events_Handler.new() -- Handles grid events to differentiate press, click, double click, hold
     grid_events.grid_event = function (e) grid_event(e) end
     
-    change_active_grid_page(settings.sequencer)
+    change_active_grid_page(settings.lightshow)
     
     for x = 1, 16 do
         collision_events_full[x] = {}
@@ -352,14 +443,14 @@ function addSynthParams(id)
     params:add_group("Synth " .. id, num_params)
     
     params:add{ type = "option", id = "algo_"..id, name = "Algo", options = thebangs.options.algoNames, default = 3 }
-    params:add{ type = "control", id = "amp_"..id, name = "Amp",controlspec = controlspec.new(0, 1, 'lin', 0, 0.5, '') }
-    params:add{ type = "control", id = "pan_"..id, name = "Pan",controlspec = controlspec.new(-1, 1, 'lin', 0, 0, '') }
-    params:add{ type = "control", id = "mod1_"..id, name = "Mod1",controlspec = controlspec.new(0, 1, 'lin', 0, 0.5, '%') }
-    params:add{ type = "control", id = "mod2_"..id, name = "Mod2",controlspec = controlspec.new(0, 4, 'lin', 0, 1.0, '%') }
-    params:add{ type = "control", id = "cutoff_"..id, name = "Cutoff",controlspec = controlspec.new(50, 5000, 'exp', 0, 800, 'hz') }
-    params:add{ type = "control", id = "attack_"..id, name = "Attack",controlspec = controlspec.new(0.0001, 10, 'exp', 0, 0.01, 's') }
+    params:add{ type = "control", id = "amp_"..id, name = "Amp",controlspec = controlSpecs.amp }
+    params:add{ type = "control", id = "pan_"..id, name = "Pan",controlspec = controlSpecs.pan }
+    params:add{ type = "control", id = "mod1_"..id, name = "Mod1",controlspec = controlSpecs.mod1 }
+    params:add{ type = "control", id = "mod2_"..id, name = "Mod2",controlspec = controlSpecs.mod2 }
+    params:add{ type = "control", id = "cutoff_"..id, name = "Cutoff",controlspec = controlSpecs.cutoff }
+    params:add{ type = "control", id = "attack_"..id, name = "Attack",controlspec = controlSpecs.attack }
     -- controlspec.new(0.1,3.2,'lin',0,1.2,'s')
-    params:add{ type = "control", id = "release_"..id, name = "Release",controlspec = controlspec.new(0.0001, 10, 'exp', 0, 1.0, 's') }
+    params:add{ type = "control", id = "release_"..id, name = "Release",controlspec = controlSpecs.release }
 end
 
 function addMidiParams(id)
@@ -548,7 +639,7 @@ function build_scale()
     end
 end
 
-function bang_note(synthId, midiId, noteNumber)
+function bang_note(synthId, midiId, noteNumber, velocity)
     if noteNumber < 0 or noteNumber > 127 then return end
     
     if synthId > 0 then
@@ -1120,6 +1211,31 @@ settings.soundout.grid_redraw = function()
         for j = 1, #GrooveCat.SYNC_RATES do
             g:led(x, j + 1, gcat.syncMode == j and 10 or 2)
         end
+    end
+end
+
+
+
+settings.synths.grid_event = function(e)
+    if e.y == 1 and e.x <= SYNTH_COUNT and e.type == "press" then
+        settings.synths.selected = e.x
+    end
+
+    for i, f in pairs(settings.synths.faders) do
+        f:grid_event(e)
+    end
+end
+
+settings.synths.grid_redraw = function(e)
+    local ledOn = 10
+    local ledOff = 5
+
+    for x = 1, SYNTH_COUNT do
+        g:led(x, 1, settings.synths.selected == x and ledOn or ledOff)
+    end
+
+    for i, f in pairs(settings.synths.faders) do
+        f:draw(g)
     end
 end
 
