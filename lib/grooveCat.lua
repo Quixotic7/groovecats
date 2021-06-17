@@ -102,6 +102,64 @@ function GrooveCat.new(physicsEngine, particleEngine)
     return c
 end
 
+function GrooveCat:get_serialized()
+    local d = {}
+
+    d.personality = self.personality
+    d.enabled = self.enabled
+    d.bounce_seq = self.bounce_seq
+    d.octave = self.octave
+
+    d.lSpeedMin = self.lSpeedMin
+    d.lSpeedMax = self.lSpeedMax
+    d.probability = self.probability
+    d.syncMode = self.syncMode
+
+    d.pos = { x = self.pos.x, y = self.pos.y }
+    d.size = self.size
+    d.rotation = self.rotation
+    d.forward = {x = self.forward.x, y = self.forward.y}
+    d.autoRotateSpeed = self.autoRotateSpeed
+
+    d.timeBetweenMegaMeow = self.timeBetweenMegaMeow
+    d.launch_synth = self.launch_synth
+    d.bounce_synth = self.bounce_synth
+    d.collision_synth = self.collision_synth
+
+    d.launch_midi = self.launch_midi
+    d.bounce_midi = self.bounce_midi
+    d.collision_midi = self.collision_midi
+
+    return d
+end
+
+function GrooveCat:load_serialized(data)
+    self.personality = data.personality
+    self.enabled = data.enabled
+    self.bounce_seq = data.bounce_seq
+    self.octave = data.octave
+
+    self.lSpeedMin = data.lSpeedMin
+    self.lSpeedMax = data.lSpeedMax
+    self.probability = data.probability
+    self:changeSyncMode(data.syncMode)
+
+    self.pos = vector2d(data.pos.x, data.pos.y)
+    self.size = data.size
+    self.rotation = data.rotation
+    self.forward = vector2d(data.forward.x, data.forward.y) 
+    self.autoRotateSpeed = data.autoRotateSpeed
+
+    self.timeBetweenMegaMeow = data.timeBetweenMegaMeow
+    self.launch_synth = data.launch_synth
+    self.bounce_synth = data.bounce_synth
+    self.collision_synth = data.collision_synth
+
+    self.launch_midi = data.launch_midi
+    self.bounce_midi = data.bounce_midi
+    self.collision_midi = data.collision_midi
+end
+
 function GrooveCat:changeSyncMode(newMode)
     self.syncMode = util.clamp(newMode, 1, #GrooveCat.SYNC_RATES)
     self.syncTime = GrooveCat.SYNC_RATES[self.syncMode]

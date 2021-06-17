@@ -13,7 +13,7 @@ function Grid_Fader.new(layout, pos_x, pos_y, size, centered, indexMode)
     f.on_value_changed = nil
     f.get_updated_value = nil
     f.centered = centered and centered or false
-    f.fadeSpeed = 0.5
+    f.fadeSpeed = 0.25
     f.value = 0.5
     f.indexMode = indexMode or false
     f.targetValue = 0.5

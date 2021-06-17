@@ -13,6 +13,7 @@
 -- Add the names of your favorite cats, max of 8
 local cat_names = {"wednesday", "swisher", "franky", "tigger", "max", "kittenface", "colby"}
 
+local version_number = 1.2
 
 local MAX_CATS = 7
 
@@ -37,6 +38,9 @@ MusicUtil = require "musicutil"
 
 engine.name = 'Thebangs'
 
+local data_path = _path.data.."groovecats/"
+local params_path = _path.data.."groovecats/params/"
+
 g = grid.connect()
 
 local controlSpecs = {}
@@ -45,8 +49,10 @@ controlSpecs.pan = controlspec.new(-1, 1, 'lin', 0, 0, '')
 controlSpecs.mod1 = controlspec.new(0, 1, 'lin', 0, 0.5, '%')
 controlSpecs.mod2 = controlspec.new(0, 4, 'lin', 0, 1.0, '%')
 controlSpecs.cutoff = controlspec.new(50, 5000, 'exp', 0, 800, 'hz')
-controlSpecs.attack = controlspec.new(0.0001, 10, 'exp', 0, 0.01, 's')
-controlSpecs.release = controlspec.new(0.0001, 10, 'exp', 0, 1.0, 's')
+-- controlSpecs.attack = controlspec.new(0.0001, 10, 'exp', 0, 0.01, 's')
+-- controlSpecs.release = controlspec.new(0.0001, 10, 'exp', 0, 1.0, 's')
+controlSpecs.attack = controlspec.new(0.005, 6, 'exp', 0, 0.01, 's')
+controlSpecs.release = controlspec.new(0.005, 6, 'exp', 0, 1.0, 's')
 
 local settings = {}
 settings.play = {x = 16, y = 1}
@@ -58,6 +64,7 @@ settings.soundout.event_modes = {"launch", "bounce", "collision"}
 settings.soundout.sound_event_ui = "launch"
 settings.synths = {x = 16, y = 5}
 settings.synths.selected = 1
+settings.fileIO = {x = 16, y = 8}
 
 -- settings.synths.mod1fader = GridFader.new("vert", 9, 8, 8, true)
 -- algo
@@ -67,7 +74,9 @@ settings.synths.algoFader.get_updated_value = function ()
 end
 settings.synths.algoFader.on_value_changed = function (newVal) 
     -- print("Algo "..newVal)
-    params:set("algo_"..settings.synths.selected, newVal) 
+    local pName = "algo_"..settings.synths.selected
+    params:set(pName, newVal) 
+    show_overlay_message(thebangs.options.algoNames[params:get(pName)], "Synth Algo")
 end
 -- amp
 settings.synths.ampfader = GridFader.new("horz", 1, 2, 15, false)
@@ -75,7 +84,9 @@ settings.synths.ampfader.get_updated_value = function ()
     return controlSpecs.amp:unmap(params:get("amp_"..settings.synths.selected))
 end
 settings.synths.ampfader.on_value_changed = function (newVal) 
-    params:set("amp_"..settings.synths.selected, controlSpecs.amp:map(newVal)) 
+    local pName = "amp_"..settings.synths.selected
+    params:set(pName, controlSpecs.amp:map(newVal)) 
+    show_overlay_message(util.round(params:get(pName), 0.01), "Amp")
 end
 -- pan
 settings.synths.panfader = GridFader.new("horz", 1, 3, 15, true)
@@ -83,7 +94,9 @@ settings.synths.panfader.get_updated_value = function ()
     return controlSpecs.pan:unmap(params:get("pan_"..settings.synths.selected))
 end
 settings.synths.panfader.on_value_changed = function (newVal) 
-    params:set("pan_"..settings.synths.selected, controlSpecs.pan:map(newVal)) 
+    local pName = "pan_"..settings.synths.selected
+    params:set(pName, controlSpecs.pan:map(newVal)) 
+    show_overlay_message(util.round(params:get(pName), 0.01), "Pan")
 end
 -- mod1
 settings.synths.mod1fader = GridFader.new("horz", 1, 4, 15, false)
@@ -91,7 +104,9 @@ settings.synths.mod1fader.get_updated_value = function ()
     return controlSpecs.mod1:unmap(params:get("mod1_"..settings.synths.selected))
 end
 settings.synths.mod1fader.on_value_changed = function (newVal) 
-    params:set("mod1_"..settings.synths.selected, controlSpecs.mod1:map(newVal)) 
+    local pName = "mod1_"..settings.synths.selected
+    params:set(pName, controlSpecs.mod1:map(newVal)) 
+    show_overlay_message(util.round(params:get(pName), 0.01), "Mod1")
 end
 -- mod2
 settings.synths.mod2fader = GridFader.new("horz", 1, 5, 15, false)
@@ -99,7 +114,9 @@ settings.synths.mod2fader.get_updated_value = function ()
     return controlSpecs.mod2:unmap(params:get("mod2_"..settings.synths.selected))
 end
 settings.synths.mod2fader.on_value_changed = function (newVal) 
-    params:set("mod2_"..settings.synths.selected, controlSpecs.mod2:map(newVal)) 
+    local pName = "mod2_"..settings.synths.selected
+    params:set(pName, controlSpecs.mod2:map(newVal)) 
+    show_overlay_message(util.round(params:get(pName), 0.01), "Mod2")
 end
 -- cutoff
 settings.synths.cutoffFader = GridFader.new("horz", 1, 6, 15, false)
@@ -107,7 +124,9 @@ settings.synths.cutoffFader.get_updated_value = function ()
     return controlSpecs.cutoff:unmap(params:get("cutoff_"..settings.synths.selected))
 end
 settings.synths.cutoffFader.on_value_changed = function (newVal) 
-    params:set("cutoff_"..settings.synths.selected, controlSpecs.cutoff:map(newVal)) 
+    local pName = "cutoff_"..settings.synths.selected
+    params:set(pName, controlSpecs.cutoff:map(newVal)) 
+    show_overlay_message(util.round(params:get(pName), 0.01), "Cutoff")
 end
 -- attack
 settings.synths.attackFader = GridFader.new("horz", 1, 7, 15, false)
@@ -115,7 +134,9 @@ settings.synths.attackFader.get_updated_value = function ()
     return controlSpecs.attack:unmap(params:get("attack_"..settings.synths.selected))
 end
 settings.synths.attackFader.on_value_changed = function (newVal) 
-    params:set("attack_"..settings.synths.selected, controlSpecs.attack:map(newVal)) 
+    local pName = "attack_"..settings.synths.selected
+    params:set(pName, controlSpecs.attack:map(newVal)) 
+    show_overlay_message(util.round(params:get(pName), 0.01), "Attack")
 end
 -- release
 settings.synths.releaseFader = GridFader.new("horz", 1, 8, 15, false)
@@ -123,7 +144,9 @@ settings.synths.releaseFader.get_updated_value = function ()
     return controlSpecs.release:unmap(params:get("release_"..settings.synths.selected))
 end
 settings.synths.releaseFader.on_value_changed = function (newVal) 
-    params:set("release_"..settings.synths.selected, controlSpecs.release:map(newVal)) 
+    local pName = "release_"..settings.synths.selected
+    params:set(pName, controlSpecs.release:map(newVal)) 
+    show_overlay_message(util.round(params:get(pName), 0.01), "Release")
 end
 
 settings.synths.faders = {
@@ -137,7 +160,13 @@ settings.synths.faders = {
     settings.synths.releaseFader
 }
 
-local grid_pages = {settings.lightshow, settings.sequencer, settings.soundout, settings.synths }
+settings.lightshow.name = "Petting Zoo"
+settings.sequencer.name = "Meowquencer"
+settings.soundout.name = "Cat Config"
+settings.synths.name = "Synths"
+settings.fileIO.name = "File IO"
+
+local grid_pages = {settings.lightshow, settings.sequencer, settings.soundout, settings.synths, settings.fileIO }
 local active_page = settings.sequencer
 
 local particleEngine = nil
@@ -158,28 +187,25 @@ local MIDI_COUNT = 16
 local is_playing = false
 
 
-local x_min = 0
-local x_max = 128
+-- local x_min = 0
+-- local x_max = 128
 
-local y_min = 0
-local y_max = 64
+-- local y_min = 0
+-- local y_max = 64
 
 local prevTime = 0
 
 local seqPos = 1
-local octave = 0
-local loopCount = 0
+-- local octave = 0
+-- local loopCount = 0
 
 local scale_names = {}
 local notes = {}
-local active_notes = {}
+-- local active_notes = {}
 
 local all_midibangs = {}
 
 -- local cat_names = {"wednesday", "swisher", "franky", "tiger"}
-
-
-
 -- local selected_grooveCat = 1
 
 local selected_cat = 1
@@ -215,6 +241,8 @@ local collision_events_full = {}
 local collision_events_half = {}
 
 local cats_on_grid = {}
+
+local overlay = nil
 
 function init()
     grid_events = Grid_Events_Handler.new() -- Handles grid events to differentiate press, click, double click, hold
@@ -253,6 +281,8 @@ function init()
     -- params:add_separator()
     -- thebangs.add_additional_synth_params()
     
+    
+    
     params:add_separator()
     params:add{type = "option", id = "scale_mode", name = "scale mode",
     options = scale_names, default = 5,
@@ -266,176 +296,174 @@ function init()
     params:add{ type = "control", id = "gravity", controlspec = controlspec.new(-50.0, 50.0, 'lin', 0, 5, '', 0.0025),
     action=function(value)
         physicsEngine.gravity = value
+    end }
+    
+    params:add_separator()
+    hsdelay.init()
+    params:set("delay_enabled", 2)
+    
+    -- params:add_separator()
+    for i = 1,SYNTH_COUNT do addSynthParams(i) end
+    for i = 1,MIDI_COUNT do addMidiParams(i) end
+    
+    params:add_separator()
+    thebangs.add_voicer_params()
+    
+    build_scale()
+    
+    paramUtil = ParamListUtil.new()
+    
+    paramUtil.delta_speed = 0.6
+    
+    paramUtil:add_option("Enabled", 
+    function() return getCurrentCat().enabled and "true" or "false" end, 
+    function(d,d_raw) 
+        getCurrentCat().enabled = not getCurrentCat().enabled
+    end)
+    
+    -- paramUtil:add_option("Gravity", 
+    --     function() return physicsEngine.gravity end, 
+    --     function(d,d_raw) 
+    --         physicsEngine.gravity = util.clamp(physicsEngine.gravity + d_raw * 0.25, -20, 20)
+    --     end
+    -- )
+    
+    paramUtil:add_option("Personality", 
+    function() return GrooveCat.PERONALITIES[getCurrentCat().personality] end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        
+        c.personality = util.clamp(c.personality + d, 1, #GrooveCat.PERONALITIES)
+    end)
+    
+    paramUtil:add_option("Sync Rate", 
+    function() return GrooveCat.SYNC_RATES[getCurrentCat().syncMode] end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        
+        c:changeSyncMode(c.syncMode + d)
+    end)
+    
+    paramUtil:add_option("RotSpeed", 
+    function() return getCurrentCat().autoRotateSpeed end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        
+        c.autoRotateSpeed = util.clamp(c.autoRotateSpeed + d_raw, -180, 180)
+    end)
+    
+    paramUtil:add_option("Probability", 
+    function() return getCurrentCat().probability end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        
+        c.probability = util.clamp(c.probability + d_raw, 0, 100)
+    end)
+    
+    paramUtil:add_option("LSpeedMin", 
+    function() return getCurrentCat().lSpeedMin end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        c.lSpeedMin = util.clamp(c.lSpeedMin + d_raw, 1, 100)
+    end)
+    
+    paramUtil:add_option("LSpeedMax", 
+    function() return getCurrentCat().lSpeedMax end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        c.lSpeedMax = util.clamp(c.lSpeedMax + d_raw, 1, 100)
+    end)
+    
+    paramUtil:add_option("Octave", 
+    function() return getCurrentCat().octave end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        
+        c.octave = util.clamp(c.octave + d_raw, -4, 4)
+    end)
+    
+    paramUtil:add_option("Launch Synth", 
+    function() 
+        local c = getCurrentCat()
+        if c.launch_synth == 0 then return "disabled" end
+        return c.launch_synth
+    end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        c.launch_synth = util.clamp(c.launch_synth + d, 0, SYNTH_COUNT)
+    end)
+    
+    paramUtil:add_option("Bounce Synth", 
+    function() 
+        local c = getCurrentCat()
+        if c.bounce_synth == 0 then return "disabled" end
+        return c.bounce_synth
+    end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        c.bounce_synth = util.clamp(c.bounce_synth + d, 0, SYNTH_COUNT)
+    end)
+    
+    paramUtil:add_option("Collision Synth", 
+    function() 
+        local c = getCurrentCat()
+        if c.collision_synth == 0 then return "disabled" end
+        return c.collision_synth
+    end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        c.collision_synth = util.clamp(c.collision_synth + d, 0, SYNTH_COUNT)
+    end)
+    paramUtil:add_option("Launch Midi", 
+    function() 
+        local c = getCurrentCat()
+        if c.launch_midi == 0 then return "disabled" end
+        return c.launch_midi
+    end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        c.launch_midi = util.clamp(c.launch_midi + d, 0, MIDI_COUNT)
+    end)
+    paramUtil:add_option("Bounce Midi", 
+    function() 
+        local c = getCurrentCat()
+        if c.bounce_midi == 0 then return "disabled" end
+        return c.bounce_midi
+    end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        c.bounce_midi = util.clamp(c.bounce_midi + d, 0, MIDI_COUNT)
+    end)
+    paramUtil:add_option("Collision Midi", 
+    function() 
+        local c = getCurrentCat()
+        if c.collision_midi == 0 then return "disabled" end
+        return c.collision_midi
+    end, 
+    function(d,d_raw) 
+        local c = getCurrentCat()
+        c.collision_midi = util.clamp(c.collision_midi + d, 0, MIDI_COUNT)
+    end)
+    
+    updateSelectedCat()
+    
+    -- Make data directories
+    if not util.file_exists(data_path) then
+        util.make_dir(data_path)
+        print("Made data path directory")
     end
-}
-
-params:add_separator()
-hsdelay.init()
-params:set("delay_enabled", 2)
-
--- params:add_separator()
-for i = 1,SYNTH_COUNT do addSynthParams(i) end
-for i = 1,MIDI_COUNT do addMidiParams(i) end
-
-params:add_separator()
-thebangs.add_voicer_params()
-
-build_scale()
-
-paramUtil = ParamListUtil.new()
-
-paramUtil.delta_speed = 0.6
-
-paramUtil:add_option("Enabled", 
-function() return getCurrentCat().enabled and "true" or "false" end, 
-function(d,d_raw) 
-    getCurrentCat().enabled = not getCurrentCat().enabled
-end
-)
-
--- paramUtil:add_option("Gravity", 
---     function() return physicsEngine.gravity end, 
---     function(d,d_raw) 
---         physicsEngine.gravity = util.clamp(physicsEngine.gravity + d_raw * 0.25, -20, 20)
---     end
--- )
-
-paramUtil:add_option("Personality", 
-function() return GrooveCat.PERONALITIES[getCurrentCat().personality] end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
     
-    c.personality = util.clamp(c.personality + d, 1, #GrooveCat.PERONALITIES)
-end
-)
-
-paramUtil:add_option("Sync Rate", 
-function() return GrooveCat.SYNC_RATES[getCurrentCat().syncMode] end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
+    if not util.file_exists(params_path) then
+        util.make_dir(params_path)
+        print("Made params directory")
+    end
     
-    c:changeSyncMode(c.syncMode + d)
-end
-)
-
-paramUtil:add_option("RotSpeed", 
-function() return getCurrentCat().autoRotateSpeed end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
+    load_last_project()
     
-    c.autoRotateSpeed = util.clamp(c.autoRotateSpeed + d_raw, -180, 180)
-end
-)
-
-paramUtil:add_option("Probability", 
-function() return getCurrentCat().probability end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
+    clock.run(screen_redraw_clock)
+    clock.run(grid_redraw_clock) 
     
-    c.probability = util.clamp(c.probability + d_raw, 0, 100)
-end
-)
-
-paramUtil:add_option("LSpeedMin", 
-function() return getCurrentCat().lSpeedMin end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
-    c.lSpeedMin = util.clamp(c.lSpeedMin + d_raw, 1, 100)
-end
-)
-
-paramUtil:add_option("LSpeedMax", 
-function() return getCurrentCat().lSpeedMax end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
-    c.lSpeedMax = util.clamp(c.lSpeedMax + d_raw, 1, 100)
-end
-)
-
-paramUtil:add_option("Octave", 
-function() return getCurrentCat().octave end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
-    
-    c.octave = util.clamp(c.octave + d_raw, -4, 4)
-end
-)
-
-paramUtil:add_option("Launch Synth", 
-function() 
-    local c = getCurrentCat()
-    if c.launch_synth == 0 then return "disabled" end
-    return c.launch_synth
-end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
-    c.launch_synth = util.clamp(c.launch_synth + d, 0, SYNTH_COUNT)
-end
-)
-
-paramUtil:add_option("Bounce Synth", 
-function() 
-    local c = getCurrentCat()
-    if c.bounce_synth == 0 then return "disabled" end
-    return c.bounce_synth
-end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
-    c.bounce_synth = util.clamp(c.bounce_synth + d, 0, SYNTH_COUNT)
-end
-)
-
-paramUtil:add_option("Collision Synth", 
-function() 
-    local c = getCurrentCat()
-    if c.collision_synth == 0 then return "disabled" end
-    return c.collision_synth
-end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
-    c.collision_synth = util.clamp(c.collision_synth + d, 0, SYNTH_COUNT)
-end
-)
-paramUtil:add_option("Launch Midi", 
-function() 
-    local c = getCurrentCat()
-    if c.launch_midi == 0 then return "disabled" end
-    return c.launch_midi
-end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
-    c.launch_midi = util.clamp(c.launch_midi + d, 0, MIDI_COUNT)
-end
-)
-paramUtil:add_option("Bounce Midi", 
-function() 
-    local c = getCurrentCat()
-    if c.bounce_midi == 0 then return "disabled" end
-    return c.bounce_midi
-end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
-    c.bounce_midi = util.clamp(c.bounce_midi + d, 0, MIDI_COUNT)
-end
-)
-paramUtil:add_option("Collision Midi", 
-function() 
-    local c = getCurrentCat()
-    if c.collision_midi == 0 then return "disabled" end
-    return c.collision_midi
-end, 
-function(d,d_raw) 
-    local c = getCurrentCat()
-    c.collision_midi = util.clamp(c.collision_midi + d, 0, MIDI_COUNT)
-end
-)
-
-updateSelectedCat()
-
-clock.run(screen_redraw_clock)
-clock.run(grid_redraw_clock) 
-
-toggle_playback()
+    toggle_playback()
 end
 
 function addSynthParams(id)
@@ -862,31 +890,51 @@ function show_overlay_message(h1, h2, time)
     h2 = h2 and h2 or ""
     time = time and time or 2
     
-    print(h1.." "..h2)
+    -- print(h1.." "..h2)
+
+    overlay = {text="",subtext="",time=0}
+    overlay.text = h1
+    overlay.subtext = h2
+    overlay.time = util.time()+(time)
 end
 
 function redraw()
     screen.clear()
     screen.aa(0)
-    
-    if param_edit then
-        screen.move(64, 10)
+
+    if overlay then
+        -- TEXT
         screen.level(15)
-        screen.text_center(cat_names[selected_cat])
-        
-        paramUtil:redraw()
-    else
-        for i,c in pairs(grooveCats) do
-            c:draw()
+        screen.font_size(16)
+        screen.move(64,40)
+        screen.text_center(overlay.text)
+        -- SUBTEXT
+        if overlay.subtext then
+          screen.level(2)
+          screen.font_size(8)
+          screen.move(64,56)
+          screen.text_center(overlay.subtext)
         end
-        
-        screen.blend_mode('add')
-        particleEngine:draw()
-        screen.blend_mode(0)
-        
-        physicsEngine:draw()
-        
-        
+        -- REMOVE OVERLAY
+        if util.time() > overlay.time then overlay = nil end
+    else
+        if param_edit then
+            screen.move(64, 10)
+            screen.level(15)
+            screen.text_center(cat_names[selected_cat])
+            
+            paramUtil:redraw()
+        else
+            for i,c in pairs(grooveCats) do
+                c:draw()
+            end
+            
+            screen.blend_mode('add')
+            particleEngine:draw()
+            screen.blend_mode(0)
+            
+            physicsEngine:draw()
+        end
     end
     
     screen.update()
@@ -903,6 +951,9 @@ end
 function change_active_grid_page(page)
     if page == nil then return end
     active_page = page
+
+    if active_page.init then active_page.init() end
+    if active_page.name then show_overlay_message(active_page.name) end
 end
 
 function g.key(x, y, z)
@@ -1107,19 +1158,19 @@ settings.soundout.grid_event = function(e)
             end
         end
     end
-
+    
     if e.type == "press" and e.y == 8 then
         -- c.probability = util.linlin(1, 16, 0, 100, e.x)
-
+        
         if e.x == 1 and c.probability > 0 then
             c.probability = 0
         else
             c.probability = e.x * 6.25
         end
-
+        
         show_overlay_message("Probability", c.probability)
     end
-
+    
     -- Sync Rates
     if e.type == "press" and e.x > 8 and e.x < 16 and e.y > 1 and e.y - 1 <= #GrooveCat.SYNC_RATES then
         local gcatIndex = e.x - 8
@@ -1137,90 +1188,89 @@ settings.soundout.grid_redraw = function()
     for x = 1, #settings.soundout.event_modes do
         g:led(x, 1, settings.soundout.event_modes[x] == settings.soundout.sound_event_ui and ledOn or ledOff)
     end
-
+    
     local c = getCurrentCat()
     local ui = settings.soundout.sound_event_ui
-
+    
     if ui == "launch" then
         if c.launch_synth == 0 then g:led(1, 2, ledOn) end
-
+        
         for x = 1, SYNTH_COUNT do
             g:led(x, 3, c.launch_synth == x and ledOn or ledOff)
         end
-
+        
         if c.launch_midi == 0 then g:led(1, 4, ledOn) end
-
+        
         for x = 1, 8 do
             g:led(x, 5, c.launch_midi == x and ledOn or ledOff)
-
+            
             g:led(x, 6, c.launch_midi == x + 8 and ledOn or ledOff)
         end
     elseif ui == "bounce" then
         if c.bounce_synth == 0 then g:led(1, 2, ledOn) end
-
+        
         for x = 1, SYNTH_COUNT do
             g:led(x, 3, c.bounce_synth == x and ledOn or ledOff)
         end
-
+        
         if c.bounce_midi == 0 then g:led(1, 4, ledOn) end
-
+        
         for x = 1, 8 do
             g:led(x, 5, c.bounce_midi == x and ledOn or ledOff)
-
+            
             g:led(x, 6, c.bounce_midi == x + 8 and ledOn or ledOff)
         end
     elseif ui == "collision" then
         if c.collision_synth == 0 then g:led(1, 2, ledOn) end
-
+        
         for x = 1, SYNTH_COUNT do
             g:led(x, 3, c.collision_synth == x and ledOn or ledOff)
         end
-
+        
         if c.collision_midi == 0 then g:led(1, 4, ledOn) end
-
+        
         for x = 1, 8 do
             g:led(x, 5, c.collision_midi == x and ledOn or ledOff)
-
+            
             g:led(x, 6, c.collision_midi == x + 8 and ledOn or ledOff)
         end
     end
-
+    
     -- probabilities
-
+    
     -- for x = 9, 15 do
     --     local gcat = grooveCats[x-8]
-
+    
     --     local grid_prob = util.linlin(0, 100, 0, 7, gcat.probability)
-
+    
     --     for y = 1, grid_prob do
     --         g:led(x, 9 - y, gcat.enabled and 10 or 2)
     --     end
     -- end
-
+    
     local grid_prob = util.round(c.probability / 6.25)
     -- local grid_prob = util.linlin(0, 100, 1, 16, c.probability)
-
+    
     for x = 1, grid_prob do
         g:led(x, 8, ledOn)
     end
-
+    
     -- sync Rates
     for x = 9, 15 do
         local gcat = grooveCats[x-8]
-
+        
         for j = 1, #GrooveCat.SYNC_RATES do
             g:led(x, j + 1, gcat.syncMode == j and 10 or 2)
         end
     end
 end
 
-
-
 settings.synths.grid_event = function(e)
     if e.y == 1 and e.x <= SYNTH_COUNT and e.type == "press" then
         settings.synths.selected = e.x
+        show_overlay_message("Synth "..e.x)
     end
-
+    
     for i, f in pairs(settings.synths.faders) do
         f:grid_event(e)
     end
@@ -1229,11 +1279,11 @@ end
 settings.synths.grid_redraw = function(e)
     local ledOn = 10
     local ledOff = 5
-
+    
     for x = 1, SYNTH_COUNT do
         g:led(x, 1, settings.synths.selected == x and ledOn or ledOff)
     end
-
+    
     for i, f in pairs(settings.synths.faders) do
         f:draw(g)
     end
@@ -1424,3 +1474,154 @@ function enc(n, d)
     end
 end
 
+
+settings.fileIO.mode = "save"
+settings.fileIO.projNum = 1
+settings.fileIO.availableProjects = {}
+
+settings.fileIO.init = function()
+    settings.fileIO.availableProjects = {}
+
+    for i = 1, (15 * 7) do
+        settings.fileIO.availableProjects[i] = is_project_available(i)
+    end
+end
+
+settings.fileIO.grid_redraw = function()    
+    if settings.fileIO.mode == "save" then
+        g:led(1, 1, 15)
+        g:led(2, 1, 8)
+    elseif settings.fileIO.mode == "load" then
+        g:led(1, 1, 8)
+        g:led(2, 1, 15)
+    end
+
+    for x = 1, 15 do
+        for y = 2, 8 do
+            local projNum = x + ((y - 2) * 15)
+
+            g:led(x, y, settings.fileIO.availableProjects[projNum] and 10 or 0)
+
+            if projNum == settings.fileIO.projNum then
+                g:led(x,y,15)
+            end
+        end
+    end
+end
+
+settings.fileIO.grid_event = function(e)
+    
+    if e.x == 1 and e.y == 1 and e.type == "press" then
+        settings.fileIO.mode = "save"
+        show_overlay_message("save")
+    elseif e.x == 2 and e.y == 1 and e.type == "press" then
+        settings.fileIO.mode = "load"
+        show_overlay_message("load")
+    end
+    
+    if e.x < 16 and e.y > 1 and e.type == "press" then
+        local projNum = e.x + ((e.y - 2) * 15)
+        if settings.fileIO.mode == "save" then
+            save_project(projNum)
+            settings.fileIO.init()
+        elseif settings.fileIO.mode == "load" then
+            load_project(projNum)
+        end
+    end
+end
+
+function load_last_project()
+    local load_path = data_path.."catbrain"..".txt"
+    
+    local file = io.open(load_path)
+    if file ~= nil then  
+        io.close(file)
+
+        local catbrain tab.load(load_path)
+        if catbrain then load_project(catbrain.projNum) end
+    end
+end
+
+function is_project_available(projNum)
+    local load_path = data_path..projNum..".txt"
+    return util.file_exists(load_path)
+end
+
+function load_project(projNum)
+    projNum = projNum and projNum or 1
+    local load_path = data_path..projNum..".txt"
+    
+    local file = io.open(load_path)
+    if file ~= nil then  
+        io.close(file)
+        
+        load_serialized_table(tab.load(load_path))
+        
+        local pset_path = params_path..projNum.."_params.pset"
+        
+        if util.file_exists(pset_path) then
+            params:read(pset_path) 
+            print("Presets loaded")
+        end
+
+        settings.fileIO.projNum = projNum
+        
+        show_overlay_message("Loaded "..projNum)
+    else
+        print("Cannot load, bad path. "..load_path)
+    end
+end
+
+function save_project(projNum)
+    -- if saveName == nil then return end
+    -- if saveName == "" then 
+    --     print("Cannot save file without a name")
+    --     return
+    -- end
+    
+    -- project_name = saveName
+    -- show_temporary_notification(project_name.." saved")
+    
+    local save_path = data_path..projNum..".txt"
+    
+    -- print("Save: "..path)
+    
+    params:write(params_path..projNum.."_params.pset")
+    tab.save(get_serialized_table(), save_path)
+
+    local catbrain = {}
+    catbrain.lastProjNum = projNum
+    tab.save(catbrain, data_path.."catbrain"..".txt")
+    
+    print("saved to "..save_path)
+    show_overlay_message("Saved "..projNum)
+    
+    redraw()
+end
+
+function get_serialized_table()
+    local d = {}
+    
+    d.version = version_number
+    
+    d.grooveCats = {}
+    
+    for i = 1, #grooveCats do
+        d.grooveCats[i] = grooveCats[i]:get_serialized()
+    end
+    
+    return d
+end
+
+function load_serialized_table(d)
+    if d == nil then
+        print("Error: Bad serialized data")
+        return
+    end
+    
+    version_number = d.version
+    
+    for i = 1, #d.grooveCats do
+        grooveCats[i]:load_serialized(d.grooveCats[i])
+    end
+end
