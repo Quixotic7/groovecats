@@ -7,7 +7,7 @@
 -- Add the names of your favorite cats, max of 8
 local cat_names = {"Wednesday", "Swisher", "Franky", "Tigger", "Max", "Kittenface", "Colby"}
 
-local version_number = 1.2
+local version_number = "1.2.1"
 
 local MAX_CATS = 7
 
