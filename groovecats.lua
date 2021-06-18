@@ -11,7 +11,7 @@
 -- KEY 3 edit params for selected cat
 
 -- Add the names of your favorite cats, max of 8
-local cat_names = {"wednesday", "swisher", "franky", "tigger", "max", "kittenface", "colby"}
+local cat_names = {"Wednesday", "Swisher", "Franky", "Tigger", "Max", "Kittenface", "Colby"}
 
 local version_number = 1.2
 
@@ -28,6 +28,7 @@ PhysicsBody = include('lib/physicsBody')
 GrooveCat = include('lib/grooveCat')
 CollisionEvent = include('lib/collision_event')
 GridFader = include('lib/gridfader')
+NameSizer = include("lib/namesizer/namesizer")
 
 local hsdelay = include('lib/halfsecond')
 local MidiBangs = include('lib/midibangs')
@@ -54,6 +55,11 @@ controlSpecs.cutoff = controlspec.new(50, 5000, 'exp', 0, 800, 'hz')
 controlSpecs.attack = controlspec.new(0.005, 6, 'exp', 0, 0.01, 's')
 controlSpecs.release = controlspec.new(0.005, 6, 'exp', 0, 1.0, 's')
 
+local ui = {}
+ui.drawCatBar = false
+ui.catBarTime = util.time()
+ui.overlay2 = nil
+
 local settings = {}
 settings.play = {x = 16, y = 1}
 -- setup grid pages
@@ -65,6 +71,10 @@ settings.soundout.sound_event_ui = "launch"
 settings.synths = {x = 16, y = 5}
 settings.synths.selected = 1
 settings.fileIO = {x = 16, y = 8}
+
+function synth_overlay_message(name, value)
+    show_overlay_message(util.round(value, 0.01), name)
+end
 
 -- settings.synths.mod1fader = GridFader.new("vert", 9, 8, 8, true)
 -- algo
@@ -86,7 +96,7 @@ end
 settings.synths.ampfader.on_value_changed = function (newVal) 
     local pName = "amp_"..settings.synths.selected
     params:set(pName, controlSpecs.amp:map(newVal)) 
-    show_overlay_message(util.round(params:get(pName), 0.01), "Amp")
+    synth_overlay_message("Amp", params:get(pName))
 end
 -- pan
 settings.synths.panfader = GridFader.new("horz", 1, 3, 15, true)
@@ -96,7 +106,7 @@ end
 settings.synths.panfader.on_value_changed = function (newVal) 
     local pName = "pan_"..settings.synths.selected
     params:set(pName, controlSpecs.pan:map(newVal)) 
-    show_overlay_message(util.round(params:get(pName), 0.01), "Pan")
+    synth_overlay_message("Pan", params:get(pName))
 end
 -- mod1
 settings.synths.mod1fader = GridFader.new("horz", 1, 4, 15, false)
@@ -106,7 +116,7 @@ end
 settings.synths.mod1fader.on_value_changed = function (newVal) 
     local pName = "mod1_"..settings.synths.selected
     params:set(pName, controlSpecs.mod1:map(newVal)) 
-    show_overlay_message(util.round(params:get(pName), 0.01), "Mod1")
+    synth_overlay_message("Mod1", params:get(pName))
 end
 -- mod2
 settings.synths.mod2fader = GridFader.new("horz", 1, 5, 15, false)
@@ -116,7 +126,7 @@ end
 settings.synths.mod2fader.on_value_changed = function (newVal) 
     local pName = "mod2_"..settings.synths.selected
     params:set(pName, controlSpecs.mod2:map(newVal)) 
-    show_overlay_message(util.round(params:get(pName), 0.01), "Mod2")
+    synth_overlay_message("Mod2", params:get(pName))
 end
 -- cutoff
 settings.synths.cutoffFader = GridFader.new("horz", 1, 6, 15, false)
@@ -126,7 +136,7 @@ end
 settings.synths.cutoffFader.on_value_changed = function (newVal) 
     local pName = "cutoff_"..settings.synths.selected
     params:set(pName, controlSpecs.cutoff:map(newVal)) 
-    show_overlay_message(util.round(params:get(pName), 0.01), "Cutoff")
+    synth_overlay_message("Cutoff", params:get(pName))
 end
 -- attack
 settings.synths.attackFader = GridFader.new("horz", 1, 7, 15, false)
@@ -136,7 +146,7 @@ end
 settings.synths.attackFader.on_value_changed = function (newVal) 
     local pName = "attack_"..settings.synths.selected
     params:set(pName, controlSpecs.attack:map(newVal)) 
-    show_overlay_message(util.round(params:get(pName), 0.01), "Attack")
+    synth_overlay_message("Attack", params:get(pName))
 end
 -- release
 settings.synths.releaseFader = GridFader.new("horz", 1, 8, 15, false)
@@ -146,7 +156,7 @@ end
 settings.synths.releaseFader.on_value_changed = function (newVal) 
     local pName = "release_"..settings.synths.selected
     params:set(pName, controlSpecs.release:map(newVal)) 
-    show_overlay_message(util.round(params:get(pName), 0.01), "Release")
+    synth_overlay_message("Release", params:get(pName))
 end
 
 settings.synths.faders = {
@@ -244,6 +254,8 @@ local cats_on_grid = {}
 
 local overlay = nil
 
+local fileIO_active = false
+
 function init()
     grid_events = Grid_Events_Handler.new() -- Handles grid events to differentiate press, click, double click, hold
     grid_events.grid_event = function (e) grid_event(e) end
@@ -280,6 +292,22 @@ function init()
     
     -- params:add_separator()
     -- thebangs.add_additional_synth_params()
+    
+    -- FILE IO GROUP --
+    params:add_group("FileIO", 4)
+    params:add{type = "text", id = "FileIO_name", name = "Filename"}
+    params:add{type = "trigger", id = "FileIO_rndName", name = "Rnd Name", action = function(value)
+        local rndName = NameSizer.rnd()
+        params:set("FileIO_name", rndName)
+    end}
+    params:add{type = "trigger", id = "FileIO_save", name = "Save", action = function(value)
+        local fileName = params:get("FileIO_name")
+        save_project_params(fileName)
+    end}
+    params:add{type = "file", path = data_path, id = "FileIO_load", name = "Load", action = function(value)
+        load_project_params(value)
+    end}
+    
     
     
     
@@ -515,10 +543,12 @@ end
 
 function toggle_playback()
     if is_playing then
-        print("Stop purring")
+        show_overlay_message("Hiss")
+        -- print("Stop purring")
         clock.transport.stop()
     else
-        print("Start purring")
+        show_overlay_message("Purr")
+        -- print("Start purring")
         clock.transport.start()
     end
 end
@@ -560,15 +590,25 @@ function select_cat(cat_id)
     
     print("select cat"..cat_id)
     
+    
     selected_cat = cat_id
     selected_cat_d = selected_cat
     updateSelectedCat()
+    
+    local c = getCurrentCat()
+    show_overlay_message(c.name)
 end
 
 function toggle_cat_enable(cat_id)
     if cat_id < 1 or cat_id > MAX_CATS then return end
     
     grooveCats[cat_id].enabled = not grooveCats[cat_id].enabled
+    
+    if grooveCats[cat_id].enabled then
+        show_overlay_message("Meow")
+    else
+        show_overlay_message("Poof")
+    end
 end
 
 function updateSelectedCat()
@@ -588,6 +628,7 @@ function add_default_cats()
         
         local c =  GrooveCat.new(physicsEngine, particleEngine)
         
+        c.name = cat_names[i]
         c.autoRotateSpeed = 0
         c:changeSyncMode(3)
         c.pos.x = math.random(wall_left, wall_right)
@@ -885,23 +926,32 @@ function grid_redraw_clock() -- our grid redraw clock
     end
 end
 
+-- Big message completely covers screen
 function show_overlay_message(h1, h2, time)
     h1 = h1 and h1 or ""
     h2 = h2 and h2 or ""
     time = time and time or 2
     
     -- print(h1.." "..h2)
-
+    
     overlay = {text="",subtext="",time=0}
     overlay.text = h1
     overlay.subtext = h2
     overlay.time = util.time()+(time)
 end
 
+-- small message, drawn on top of screen
+function show_overlay2(message, time)
+    message = message and message or ""
+    time = time and time or 2
+    
+    ui.overlay2 = {text = message, time = util.time() + time}
+end
+
 function redraw()
     screen.clear()
     screen.aa(0)
-
+    
     if overlay then
         -- TEXT
         screen.level(15)
@@ -910,10 +960,10 @@ function redraw()
         screen.text_center(overlay.text)
         -- SUBTEXT
         if overlay.subtext then
-          screen.level(2)
-          screen.font_size(8)
-          screen.move(64,56)
-          screen.text_center(overlay.subtext)
+            screen.level(2)
+            screen.font_size(8)
+            screen.move(64,56)
+            screen.text_center(overlay.subtext)
         end
         -- REMOVE OVERLAY
         if util.time() > overlay.time then overlay = nil end
@@ -921,7 +971,7 @@ function redraw()
         if param_edit then
             screen.move(64, 10)
             screen.level(15)
-            screen.text_center(cat_names[selected_cat])
+            screen.text_center(getCurrentCat().name)
             
             paramUtil:redraw()
         else
@@ -934,6 +984,36 @@ function redraw()
             screen.blend_mode(0)
             
             physicsEngine:draw()
+            
+            if ui.drawCatBar then
+                
+                local lineStep = util.round(128 / #grooveCats)
+                local linePad = 1
+                
+                screen.line_width(1)
+                
+                for i = 1, #grooveCats do
+                    local xPos = (i - 1) * lineStep
+                    screen.move(xPos + linePad, 1)
+                    screen.level(i == selected_cat and 15 or (grooveCats[i].enabled and 7 or 2))
+                    screen.line(xPos + lineStep - linePad, 1)
+                    screen.stroke()
+                end
+                
+                if util.time() > ui.catBarTime then ui.drawCatBar = false end
+            end
+            
+            if ui.overlay2 then
+                -- TEXT
+                screen.blend_mode('add')
+                screen.level(5)
+                screen.font_size(8)
+                screen.move(64,10)
+                screen.text_center(ui.overlay2.text)
+                screen.blend_mode(0)
+                -- REMOVE OVERLAY
+                if util.time() > ui.overlay2.time then ui.overlay2 = nil end
+            end
         end
     end
     
@@ -951,7 +1031,7 @@ end
 function change_active_grid_page(page)
     if page == nil then return end
     active_page = page
-
+    
     if active_page.init then active_page.init() end
     if active_page.name then show_overlay_message(active_page.name) end
 end
@@ -1159,13 +1239,13 @@ settings.soundout.grid_event = function(e)
         end
     end
     
-    if e.type == "press" and e.y == 8 then
+    if e.type == "press" and e.y == 8 and e.x < 16 then
         -- c.probability = util.linlin(1, 16, 0, 100, e.x)
         
         if e.x == 1 and c.probability > 0 then
             c.probability = 0
         else
-            c.probability = e.x * 6.25
+            c.probability = util.round(e.x * (100.0 / 15.0))
         end
         
         show_overlay_message("Probability", c.probability)
@@ -1248,7 +1328,7 @@ settings.soundout.grid_redraw = function()
     --     end
     -- end
     
-    local grid_prob = util.round(c.probability / 6.25)
+    local grid_prob = util.round(c.probability / (100.0 / 15.0))
     -- local grid_prob = util.linlin(0, 100, 1, 16, c.probability)
     
     for x = 1, grid_prob do
@@ -1298,6 +1378,7 @@ function grid_event_cat_selection(e)
             toggle_cat_enable(cat_id)
         elseif e.type == "hold" then
             ui_mode = "cat"
+            show_overlay_message("Cat Settings")
         elseif e.type == "release" and cat_id == selected_cat then
             ui_mode = "main"
         end
@@ -1426,14 +1507,19 @@ function key(n, v)
     else
         if shift1_down then
             if n == 2 and v == 1 then
-                local c = getCurrentCat()
-                c.enabled = not c.enabled
-            elseif n == 3 and v == 1 then
-                addNewCat()
+                toggle_playback()
+                -- local c = getCurrentCat()
+                -- c.enabled = not c.enabled
+                -- elseif n == 3 and v == 1 then
+                --     addNewCat()
             end
         else
-            if n == 2 then
-                shift2_down = v == 1
+            if n == 2 and v == 1 then
+                local c = getCurrentCat()
+                c.enabled = not c.enabled
+                
+                show_overlay2((c.enabled and "Meow" or "Poof"))
+                -- shift2_down = v == 1
             elseif n == 3 and v == 1 then
                 param_edit = true
                 shift2_down = false
@@ -1447,22 +1533,24 @@ function enc(n, d)
         selected_cat_d = util.clamp(selected_cat_d + d * 0.25, 1, #grooveCats)
         -- selected_cat = cycle((selected_cat + util.clamp(d,-1,1)), 1, #grooveCats)
         selected_cat = util.round(selected_cat_d)
+        ui.drawCatBar = true
+        ui.catBarTime = util.time() + 1
         updateSelectedCat()
     end
     
     if param_edit then
         paramUtil:enc(n, d)
     else
-        
-        
         local current_cat = getCurrentCat()
         
         if current_cat == nil then return end
         
-        if shift2_down then
+        if shift1_down then
             if n == 2 then
                 current_cat:rotate(d * 5)
             elseif n == 3 then
+                current_cat.autoRotateSpeed = util.clamp(current_cat.autoRotateSpeed + d, -180, 180)
+                show_overlay2("AutoRotate: "..util.round(current_cat.autoRotateSpeed, 0.1))
             end
         else
             if n == 2 then
@@ -1481,7 +1569,7 @@ settings.fileIO.availableProjects = {}
 
 settings.fileIO.init = function()
     settings.fileIO.availableProjects = {}
-
+    
     for i = 1, (15 * 7) do
         settings.fileIO.availableProjects[i] = is_project_available(i)
     end
@@ -1495,13 +1583,13 @@ settings.fileIO.grid_redraw = function()
         g:led(1, 1, 8)
         g:led(2, 1, 15)
     end
-
+    
     for x = 1, 15 do
         for y = 2, 8 do
             local projNum = x + ((y - 2) * 15)
-
+            
             g:led(x, y, settings.fileIO.availableProjects[projNum] and 10 or 0)
-
+            
             if projNum == settings.fileIO.projNum then
                 g:led(x,y,15)
             end
@@ -1513,10 +1601,10 @@ settings.fileIO.grid_event = function(e)
     
     if e.x == 1 and e.y == 1 and e.type == "press" then
         settings.fileIO.mode = "save"
-        show_overlay_message("save")
+        show_overlay_message("Save")
     elseif e.x == 2 and e.y == 1 and e.type == "press" then
         settings.fileIO.mode = "load"
-        show_overlay_message("load")
+        show_overlay_message("Load")
     end
     
     if e.x < 16 and e.y > 1 and e.type == "press" then
@@ -1536,7 +1624,7 @@ function load_last_project()
     local file = io.open(load_path)
     if file ~= nil then  
         io.close(file)
-
+        
         local catbrain tab.load(load_path)
         if catbrain then load_project(catbrain.projNum) end
     end
@@ -1547,9 +1635,97 @@ function is_project_available(projNum)
     return util.file_exists(load_path)
 end
 
+-- function GetFileName(path)
+--     return path:match("^.+/(.+)$")
+-- end
+
+function GetFilename(path)   
+    local start, finish = path:find('[%w%s!-={-|]+[_%.].+')   
+    return path:sub(start,#path) 
+end
+
+function GetFileExtension(path)
+    return path:match("^.+(%..+)$")
+end
+
+function SplitFilename(strFilename)
+    -- Returns the Path, Filename, and Extension as 3 values
+    return string.match(strFilename, "(.-)([^\\]-([^\\%.]+))$")
+end
+
+function load_project_params(fullPath)
+    if fileIO_active then return end
+    print("Load "..fullPath)
+    fileIO_active = true
+    local file = io.open(fullPath)
+
+    if file ~= nil then  
+        io.close(file)
+        
+        load_serialized_table(tab.load(fullPath))
+        
+        local pathname,filename,ext=string.match(fullPath,"(.-)([^\\/]-%.?([^%.\\/]*))$")
+
+        filename = filename:match("(.+)%..+")
+        -- local filename = GetFilename(fullPath)
+
+        print("pathname "..pathname)
+        print("filename "..filename)
+        print("ext "..ext)
+
+        local pset_path = params_path..filename.."_params.pset"
+        
+        print("pset_path "..pset_path)
+        
+        if util.file_exists(pset_path) then
+            params:read(pset_path) 
+            print("Presets loaded")
+        end
+        
+        settings.fileIO.projNum = 1
+        
+        params:set("FileIO_name", filename, true)
+        params:set("FileIO_load", "", true)
+    else
+        print("Cannot load, bad path. "..fullPath)
+    end
+    fileIO_active = false
+end
+
+function save_project_params(fileName)
+    if fileIO_active then return end
+    if not fileName then return end
+    if #fileName == 0 then
+        print("Cannot save. Filename is empty")
+        return 
+    end
+
+    fileIO_active = true
+    local save_path = data_path..fileName..".txt"
+
+    params:set("FileIO_load", "", true)
+    
+    params:write(params_path..fileName.."_params.pset")
+    tab.save(get_serialized_table(), save_path)
+    
+    local catbrain = {}
+    catbrain.lastProjNum = settings.fileIO.projNum
+    tab.save(catbrain, data_path.."catbrain"..".txt")
+    
+    print("saved to "..save_path)
+    show_overlay_message("Saved "..fileName)
+    
+    redraw()
+
+    fileIO_active = false
+end
+
 function load_project(projNum)
+    if fileIO_active then return end
     projNum = projNum and projNum or 1
     local load_path = data_path..projNum..".txt"
+
+    fileIO_active = true
     
     local file = io.open(load_path)
     if file ~= nil then  
@@ -1563,16 +1739,22 @@ function load_project(projNum)
             params:read(pset_path) 
             print("Presets loaded")
         end
-
+        
         settings.fileIO.projNum = projNum
         
         show_overlay_message("Loaded "..projNum)
+
+        params:set("FileIO_name", (""..projNum), true)
+        params:set("FileIO_load", "", true)
     else
         print("Cannot load, bad path. "..load_path)
     end
+
+    fileIO_active = false
 end
 
 function save_project(projNum)
+    if fileIO_active then return end
     -- if saveName == nil then return end
     -- if saveName == "" then 
     --     print("Cannot save file without a name")
@@ -1581,14 +1763,19 @@ function save_project(projNum)
     
     -- project_name = saveName
     -- show_temporary_notification(project_name.." saved")
+
+    fileIO_active = true
     
     local save_path = data_path..projNum..".txt"
     
     -- print("Save: "..path)
+
+    params:set("FileIO_name", (""..projNum), true)
+    params:set("FileIO_load", "", true)
     
     params:write(params_path..projNum.."_params.pset")
     tab.save(get_serialized_table(), save_path)
-
+    
     local catbrain = {}
     catbrain.lastProjNum = projNum
     tab.save(catbrain, data_path.."catbrain"..".txt")
@@ -1597,6 +1784,8 @@ function save_project(projNum)
     show_overlay_message("Saved "..projNum)
     
     redraw()
+
+    fileIO_active = false
 end
 
 function get_serialized_table()

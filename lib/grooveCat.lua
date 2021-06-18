@@ -17,6 +17,7 @@ function GrooveCat.new(physicsEngine, particleEngine)
 
     -- c.particleEngine = nil
 
+    c.name = "MrCat"
 
     c.onMeow = nil
 
@@ -105,6 +106,7 @@ end
 function GrooveCat:get_serialized()
     local d = {}
 
+    d.name = self.name
     d.personality = self.personality
     d.enabled = self.enabled
     d.bounce_seq = self.bounce_seq
@@ -134,6 +136,7 @@ function GrooveCat:get_serialized()
 end
 
 function GrooveCat:load_serialized(data)
+    self.name = data.name
     self.personality = data.personality
     self.enabled = data.enabled
     self.bounce_seq = data.bounce_seq
