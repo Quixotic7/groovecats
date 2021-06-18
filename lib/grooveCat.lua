@@ -163,6 +163,32 @@ function GrooveCat:load_serialized(data)
     self.collision_midi = data.collision_midi
 end
 
+function GrooveCat:printValues()
+    self:printValue("name", self.name)
+    self:printValue("personality", self.personality)
+    self:printValue("enabled", self.enabled and "true" or "false")
+    self:printValue("octave", self.octave)
+    self:printValue("lSpeedMin", self.lSpeedMin)
+    self:printValue("lSpeedMax", self.lSpeedMax)
+    self:printValue("probability", self.probability)
+    self:printValue("syncMode", self.syncMode)
+    self:printValue("syncTime", self.syncTime)
+    self:printValue("pos.x", self.pos.x)
+    self:printValue("pos.y", self.pos.y)
+    self:printValue("rotation", self.rotation)
+    self:printValue("autoRotateSpeed", self.autoRotateSpeed)
+    self:printValue("launch_synth", self.launch_synth)
+    self:printValue("bounce_synth", self.bounce_synth)
+    self:printValue("collision_synth", self.collision_synth)
+    self:printValue("launch_midi", self.launch_midi)
+    self:printValue("bounce_midi", self.bounce_midi)
+    self:printValue("collision_midi", self.collision_midi)
+end
+
+function GrooveCat:printValue(name, val)
+    print(name..": "..val)
+end
+
 function GrooveCat:changeSyncMode(newMode)
     self.syncMode = util.clamp(newMode, 1, #GrooveCat.SYNC_RATES)
     self.syncTime = GrooveCat.SYNC_RATES[self.syncMode]
@@ -205,6 +231,28 @@ end
 
 function GrooveCat:set_loop_data(step, val)
     self.bounce_seq.data[step] = val
+end
+
+function GrooveCat:randomize_loop()
+    for i = 1, self.bounce_seq.length do
+        self.bounce_seq.data[i] = math.random(0, 8)
+    end
+end
+
+function GrooveCat:shuffle_loop()
+    local bSeq = {}
+
+    -- cache sequence
+    for i = 1, self.bounce_seq.length do
+        bSeq[i] = self.bounce_seq.data[i]
+    end
+
+    for i = 1, self.bounce_seq.length do
+        local pos = math.random(1, #bSeq)
+        local val = table.remove(bSeq, pos)
+
+        self.bounce_seq.data[i] = val
+    end
 end
 
 -- advance a sequence whenever the furball bounces

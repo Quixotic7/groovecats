@@ -1,5 +1,5 @@
 -- groovecats
--- v1.2.1 @quixotic7
+-- v1.3.1 @quixotic7
 -- https://norns.community/e/en/authors/quixotic7/groovecats
 --
 -- A weird cat sequencer thing
@@ -7,9 +7,10 @@
 -- Add the names of your favorite cats, max of 8
 local cat_names = {"Wednesday", "Swisher", "Franky", "Tigger", "Max", "Kittenface", "Colby"}
 
-local version_number = "1.2.1"
+local version_number = "1.3.1"
 
 local MAX_CATS = 7
+local RND_MIDI_COUNT = 4 -- change to use more midi channels for randomize
 
 Q7Util = include('lib/Q7Util')
 ParamListUtil = include('lib/Q7ParamListUtil')
@@ -49,6 +50,11 @@ controlSpecs.cutoff = controlspec.new(50, 5000, 'exp', 0, 800, 'hz')
 controlSpecs.attack = controlspec.new(0.005, 6, 'exp', 0, 0.01, 's')
 controlSpecs.release = controlspec.new(0.005, 6, 'exp', 0, 1.0, 's')
 
+-- controlSpecs.midiVelMin = controlspec.new(0, 127, 'lin', 1, 60, '')
+-- controlSpecs.midiVelMax = controlspec.new(0, 127, 'lin', 1, 120, '')
+controlSpecs.midiNoteLengthMin = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)
+controlSpecs.midiNoteLengthMax = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)
+
 local ui = {}
 ui.drawCatBar = false
 ui.catBarTime = util.time()
@@ -59,6 +65,17 @@ settings.play = {x = 16, y = 1}
 -- setup grid pages
 settings.lightshow = {x = 16, y = 2}
 settings.sequencer = {x = 16, y = 3}
+settings.sequencer.octave = GridFader.new("horz", 9, 7, 7, false, true)
+settings.sequencer.octave.get_updated_value = function ()
+    return getCurrentCat().octave + 4
+end
+settings.sequencer.octave.on_value_changed = function (newVal) 
+    local c = getCurrentCat()
+    c.octave = newVal - 4
+    show_overlay_message(c.octave, "Octave")
+end
+settings.sequencer.faders = {settings.sequencer.octave}
+
 settings.soundout = {x = 16, y = 4}
 settings.soundout.event_modes = {"launch", "bounce", "collision"}
 settings.soundout.sound_event_ui = "launch"
@@ -249,6 +266,9 @@ local cats_on_grid = {}
 local overlay = nil
 
 local fileIO_active = false
+
+local random_hold = false
+local random_hold_time = 0
 
 function init()
     grid_events = Grid_Events_Handler.new() -- Handles grid events to differentiate press, click, double click, hold
@@ -509,12 +529,20 @@ function addMidiParams(id)
     
     params:add{type="number", id="midiDevice_"..id, name="Device", min = 1, max = 4, default = 1 }
     params:add{type="number", id="midiChannel_"..id, name="Channel", min = 0, max = 16, default = id }
-    params:add{type="number", id="midiVelMin_"..id, name="Vel Min", min = 0, max = 127, default = 60 }
-    params:add{type="number", id="midiVelMax_"..id, name="Vel Max", min = 0, max = 127, default = 120 }
+    -- params:add{type="number", id="midiVelMin_"..id, name="Vel Min", min = 0, max = 127, default = 60 }
+    -- params:add{type="number", id="midiVelMax_"..id, name="Vel Max", min = 0, max = 127, default = 120 }
     -- params:add{type = "control", id = "midiNoteLength_"..id, name = "Note Length", controlspec = controlspec.new(0.0001, 16.0, 'exp', 1/24, 0.25, 'bt')}
     
-    params:add{type = "control", id = "midiNoteLengthMin_"..id, name = "Length Min", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
-    params:add{type = "control", id = "midiNoteLengthMax_"..id, name = "Length Max", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
+    -- params:add{type = "control", id = "midiNoteLengthMin_"..id, name = "Length Min", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
+    -- params:add{type = "control", id = "midiNoteLengthMax_"..id, name = "Length Max", controlspec = controlspec.new(0, 16.0, 'lin', 0.01, 1/4, 'bt', 1/24/10)}
+    
+    -- params:add{type="number", id="midiVelMin_"..id, name="Vel Min", controlspec = controlSpecs.midiVelMin }
+    -- params:add{type="number", id="midiVelMax_"..id, name="Vel Max", controlspec = controlSpecs.midiVelMax }
+    
+    params:add{type="number", id="midiVelMin_"..id, name="Vel Min", min = 0, max = 127, default = 60 }
+    params:add{type="number", id="midiVelMax_"..id, name="Vel Max", min = 0, max = 127, default = 120 }
+    params:add{type = "control", id = "midiNoteLengthMin_"..id, name = "Length Min", controlspec = controlSpecs.midiNoteLengthMin}
+    params:add{type = "control", id = "midiNoteLengthMax_"..id, name = "Length Max", controlspec = controlSpecs.midiNoteLengthMax}
 end
 
 function updateSynth(id)
@@ -617,6 +645,98 @@ function updateSelectedCat()
     
 end
 
+function randomize_all()
+    randomize_petting_zoo()
+    randomize_cat_config()
+    randomize_synths()
+    -- randomize_midis()
+    
+    for i = 1, #grooveCats do
+        local c = grooveCats[i]
+        
+        c:randomize_loop()
+    end
+end
+
+function randomize_petting_zoo()
+    for i = 1, #grooveCats do
+        randomize_petting_zoo_cat(i)
+    end
+end
+
+function randomize_petting_zoo_cat(catIndex)
+    local c = grooveCats[catIndex]
+    local pos_x, pos_y = get_pos_from_grid(1,15,2,8, math.random(1,15), math.random(2,8))
+    c.pos.x = pos_x
+    c.pos.y = pos_y
+    
+    c.enabled = (math.random() > 0.6) and true or false
+    
+    c.personality = math.random(1,#GrooveCat.PERONALITIES)
+    c.probability = math.random(10, 100)
+    c.octave = math.random(-3, 3)
+    c.lSpeedMin = math.random(10, 60)
+    c.lSpeedMax = math.random(60, 100)
+    c:changeSyncMode(math.random(1, #GrooveCat.SYNC_RATES))
+    c.autoRotateSpeed = math.random(-180, 180)
+end
+
+function randomize_cat_config()
+    for i = 1, #grooveCats do
+        randomize_cat_config_cat(i)
+    end
+end
+
+function randomize_cat_config_cat(catIndex)
+    local c = grooveCats[catIndex]
+    
+    c:changeSyncMode(math.random(1, #GrooveCat.SYNC_RATES))
+    
+    c.launch_synth = math.random(0, SYNTH_COUNT)
+    c.bounce_synth = math.random(0, SYNTH_COUNT)
+    c.collision_synth = math.random(0, SYNTH_COUNT)
+    
+    c.launch_midi = math.random(0, RND_MIDI_COUNT)
+    c.bounce_midi = math.random(0, RND_MIDI_COUNT)
+    c.collision_midi = math.random(0, RND_MIDI_COUNT)
+    
+    c:changeSyncMode(math.random(1, #GrooveCat.SYNC_RATES))
+    c.probability = math.random(10, 100)
+    
+    -- c:printValues()
+end
+
+function randomize_synths()
+    for i = 1, SYNTH_COUNT do
+        randomize_synth(i)
+    end
+end
+
+function randomize_synth(synthIndex)
+    params:set("algo_"..synthIndex, math.random(1, #thebangs.options.algoNames))
+    params:set("amp_"..synthIndex, controlSpecs.amp:map(math.random()))
+    params:set("pan_"..synthIndex, controlSpecs.pan:map(math.random()))
+    params:set("mod1_"..synthIndex, controlSpecs.mod1:map(math.random()))
+    params:set("mod2_"..synthIndex, controlSpecs.mod2:map(math.random()))
+    params:set("cutoff_"..synthIndex, controlSpecs.cutoff:map(math.random()))
+    params:set("attack_"..synthIndex, controlSpecs.attack:map(math.random()))
+    params:set("release_"..synthIndex, controlSpecs.release:map(math.random()))
+end
+
+function randomize_midis()
+    for i = 1, MIDI_COUNT do
+        randomize_midi(i)
+    end
+end
+
+function randomize_midi(midiIndex)
+    params:set("midiVelMin_"..midiIndex, math.random(0, 127))
+    params:set("midiVelMax_"..midiIndex, math.random(0, 127))
+    
+    params:set("midiNoteLengthMin_"..midiIndex, controlSpecs.midiNoteLengthMin:map(math.random()))
+    params:set("midiNoteLengthMax_"..midiIndex, controlSpecs.midiNoteLengthMax:map(math.random()))
+end
+
 function add_default_cats()
     for i = 1, MAX_CATS do
         
@@ -712,7 +832,7 @@ function bang_note(synthId, midiId, noteNumber, velocity)
     end
     if midiId > 0 then
         local deviceId = params:get("midiDevice_"..midiId)
-
+        
         local velMin, velMax = Q7Util.get_min_max(params:get("midiVelMin_"..midiId), params:get("midiVelMax_"..midiId))
         local vel = math.random(velMin, velMax)
         local lengthMin, lengthMax = Q7Util.get_min_max(params:get("midiNoteLengthMin_"..midiId), params:get("midiNoteLengthMax_"..midiId))
@@ -938,11 +1058,12 @@ function show_overlay_message(h1, h2, time)
 end
 
 -- small message, drawn on top of screen
-function show_overlay2(message, time)
+function show_overlay2(message, message2, time)
     message = message and message or ""
+    message2 = message2 and message2 or ""
     time = time and time or 2
     
-    ui.overlay2 = {text = message, time = util.time() + time}
+    ui.overlay2 = {text = message, text2 = message2, time = util.time() + time}
 end
 
 function redraw()
@@ -1007,6 +1128,8 @@ function redraw()
                 screen.font_size(8)
                 screen.move(64,10)
                 screen.text_center(ui.overlay2.text)
+                screen.move(64,20)
+                screen.text_center(ui.overlay2.text2)
                 screen.blend_mode(0)
                 -- REMOVE OVERLAY
                 if util.time() > ui.overlay2.time then ui.overlay2 = nil end
@@ -1057,6 +1180,22 @@ function toolbar_grid_event(e)
         if is_event_at_position(e, p) and e.type == "press" then change_active_grid_page(p) end
     end
     
+    -- randomize
+    if e.x == 16 and e.y == 7 then
+        if e.z == 1 then
+            random_hold = true
+            random_hold_time = util.time() + 1.0
+        elseif e.z == 0 then
+            random_hold = false
+        end
+        
+        if e.type == "press" then
+            show_overlay2("double click to randomize", "long hold to randomize all")
+        elseif e.type == "double_click" then
+            if active_page.randomize then active_page.randomize() end
+        end
+    end
+    
     -- if is_event_at_position(e, settings.sequencer) and e.type == "press" then change_active_grid_page(settings.sequencer) end
     
     -- -- LightShow!!!
@@ -1093,6 +1232,8 @@ function grid_draw_cat_settings()
     end
 end
 
+
+
 settings.sequencer.grid_event = function(e)
     grid_event_cat_selection(e)
     
@@ -1115,7 +1256,69 @@ settings.sequencer.grid_event = function(e)
                 c:set_loop_data(e.x, 9 - e.y)
             end
         end
+        
+        -- randomize sequence
+        if e.x == 9 and e.y == 8 and e.z == 1 then
+            c:randomize_loop()
+            show_overlay_message("Randomize")
+        elseif e.x == 10 and e.y == 8 and e.z == 1 then
+            c:shuffle_loop()
+            show_overlay_message("Shuffle")
+        end
+        
+        for i, f in pairs(settings.sequencer.faders) do
+            f:grid_event(e)
+        end
     end
+end
+
+settings.lightshow.randomize = function()
+    local c = getCurrentCat()
+    local enabled = c.enabled
+    randomize_petting_zoo_cat(selected_cat)
+    c.enabled = enabled
+    show_overlay2("randomize cat")
+end
+
+settings.lightshow.randomize_all = function()
+    randomize_petting_zoo()
+    show_overlay2("randomize all cats")
+end
+
+settings.sequencer.randomize = function()
+    local c = getCurrentCat()
+    c:randomize_loop()
+    c.octave = math.random(-3, 3)
+    show_overlay2("randomize seq")
+end
+
+settings.sequencer.randomize_all = function()
+    for i = 1, #grooveCats do
+        local c = grooveCats[i]
+        c:randomize_loop()
+        c.octave = math.random(-3, 3)
+    end
+    show_overlay2("randomize all seqs")
+end
+
+settings.soundout.randomize = function()
+    randomize_cat_config_cat(selected_cat)
+    show_overlay2("randomize cat")
+end
+
+settings.soundout.randomize_all = function()
+    randomize_cat_config()
+    show_overlay2("randomize all cats")
+end
+
+settings.synths.randomize = function()
+    randomize_synth(settings.synths.selected)
+    show_overlay2("randomize synth")
+end
+
+settings.synths.randomize_all = function()
+    randomize_synths()
+    show_overlay2("randomize all synths")
 end
 
 settings.lightshow.grid_event = function(e)
@@ -1423,11 +1626,19 @@ function grid_draw_toolbar()
     
     g:led(settings.play.x, settings.play.y, is_playing and 10 or 2) -- play button
     
-    local activePageLED = 6
+    local activePageLED = 10
     local inactivePageLED = 2
     
     for i, p in pairs(grid_pages) do
         g:led(p.x, p.y, is_page_active(p) and activePageLED or inactivePageLED)
+    end
+    
+    -- random button
+    g:led(16,7,4)
+    
+    if random_hold and util.time() > random_hold_time then
+        random_hold = false
+        if active_page.randomize_all then active_page.randomize_all() end
     end
     
     -- g:led(settings.sequencer.x, settings.sequencer.y, is_page_active(settings.sequencer) and activePageLED or inactivePageLED)
@@ -1455,6 +1666,12 @@ settings.sequencer.grid_redraw = function()
             g:led(c.bounce_seq.pos, 1, 3)
         end
         
+        g:led(9,8,10) -- randomize
+        g:led(10,8,10) -- shuffle
+        
+        for i, f in pairs(settings.sequencer.faders) do
+            f:draw(g)
+        end
     elseif ui_mode == "cat" then
         grid_draw_cat_settings()
     end
@@ -1530,6 +1747,8 @@ function key(n, v)
                 -- c.enabled = not c.enabled
                 -- elseif n == 3 and v == 1 then
                 --     addNewCat()
+            elseif n == 3 and v == 1 then
+                randomize_all()
             end
         else
             if n == 2 and v == 1 then
