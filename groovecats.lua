@@ -714,7 +714,7 @@ end
 
 function randomize_synth(synthIndex)
     params:set("algo_"..synthIndex, math.random(1, #thebangs.options.algoNames))
-    params:set("amp_"..synthIndex, controlSpecs.amp:map(math.random()))
+    -- params:set("amp_"..synthIndex, controlSpecs.amp:map(math.random()))
     params:set("pan_"..synthIndex, controlSpecs.pan:map(math.random()))
     params:set("mod1_"..synthIndex, controlSpecs.mod1:map(math.random()))
     params:set("mod2_"..synthIndex, controlSpecs.mod2:map(math.random()))
