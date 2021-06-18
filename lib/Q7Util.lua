@@ -19,6 +19,11 @@ function Q7Util.sign(n)
         or  0
 end
 
+function Q7Util.get_min_max(v1, v2)
+    local min = math.min(v1, v2)
+    local max = math.max(v1, v2)
+    return min, max
+end
 
 
 

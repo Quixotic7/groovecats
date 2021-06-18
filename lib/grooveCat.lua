@@ -234,7 +234,10 @@ function GrooveCat:getNewPhysicsBody(x, y)
     b.octave = self.octave
 
     b.gravity = 5
-    b.speed = math.random(self.lSpeedMin, self.lSpeedMax)
+
+    local speedMin, speedMax = Q7Util.get_min_max(self.lSpeedMin, self.lSpeedMax)
+
+    b.speed = math.random(speedMin, speedMax)
     b.angle = self.rotation
 
     return b

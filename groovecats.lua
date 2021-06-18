@@ -1,5 +1,5 @@
 -- groovecats
--- v1.2 @quixotic7
+-- v1.2.1 @quixotic7
 -- https://norns.community/e/en/authors/quixotic7/groovecats
 --
 -- A weird cat sequencer thing
@@ -712,8 +712,11 @@ function bang_note(synthId, midiId, noteNumber, velocity)
     end
     if midiId > 0 then
         local deviceId = params:get("midiDevice_"..midiId)
-        local vel = math.random(params:get("midiVelMin_"..midiId), params:get("midiVelMax_"..midiId))
-        local length = util.linlin(0,1, params:get("midiNoteLengthMin_"..midiId), params:get("midiNoteLengthMax_"..midiId), math.random())
+
+        local velMin, velMax = Q7Util.get_min_max(params:get("midiVelMin_"..midiId), params:get("midiVelMax_"..midiId))
+        local vel = math.random(velMin, velMax)
+        local lengthMin, lengthMax = Q7Util.get_min_max(params:get("midiNoteLengthMin_"..midiId), params:get("midiNoteLengthMax_"..midiId))
+        local length = util.linlin(0,1, lengthMin, lengthMax, math.random())
         all_midibangs[deviceId]:bang(noteNumber, vel, length, params:get("midiChannel_"..midiId))
     end
 end

@@ -117,7 +117,12 @@ system > reset then launch groovecats
 - maybe basic support for the petting zoo. 
 
 ## version notes
+**v1.2.1**
+
+- bug fix, app would crash if velMin was greater than velMax
+
 **v1.2**
+
 - added further grid support with ability to change synth params and cat params from the grid. 
 - added the ability to save and load projects.
 - updated the UI a bit.
