@@ -1,14 +1,8 @@
 -- groovecats
--- v1.0 @quixotic7
--- https://github.com/Quixotic7/groovecats
+-- v1.2 @quixotic7
+-- https://norns.community/e/en/authors/quixotic7/groovecats
 --
--- Experimental particle sequencer
--- 
--- ENC 1 select cat
--- ENC 2, ENC 2 move cat
--- KEY 2 shift mode
--- SHIFT + ENC 2 rotate cat
--- KEY 3 edit params for selected cat
+-- A weird cat sequencer thing
 
 -- Add the names of your favorite cats, max of 8
 local cat_names = {"Wednesday", "Swisher", "Franky", "Tigger", "Max", "Kittenface", "Colby"}
@@ -1124,44 +1118,50 @@ end
 settings.lightshow.grid_event = function(e)
     grid_event_cat_selection(e)
     
-    build_cats_on_grid()
-    
-    local c = getCurrentCat()
-    
-    if e.x < 16 and e.y > 1 then
-        local catIndex = -1
-        if e.type == "press" then
-            -- look for cats at grid position
-            local cats = cats_on_grid[e.x][e.y]
-            
-            if cats ~= nil then
-                for i = 1, #cats do
-                    local j = cats[i]
-                    
-                    if j ~= selected_cat and grooveCats[j].enabled then
-                        catIndex = j
-                        break
+    if ui_mode == "cat" then
+        if e.x <= 8 and e.type == "press" then
+            cat_grid_event(e)
+        end
+    elseif ui_mode == "main" then
+        build_cats_on_grid()
+        
+        local c = getCurrentCat()
+        
+        if e.x < 16 and e.y > 1 then
+            local catIndex = -1
+            if e.type == "press" then
+                -- look for cats at grid position
+                local cats = cats_on_grid[e.x][e.y]
+                
+                if cats ~= nil then
+                    for i = 1, #cats do
+                        local j = cats[i]
+                        
+                        if j ~= selected_cat and grooveCats[j].enabled then
+                            catIndex = j
+                            break
+                        end
                     end
                 end
-            end
-            
-            if catIndex >= 0 then -- select the cat
-                select_cat(catIndex)
-            else -- move selected cat
-                local pos_x, pos_y = get_pos_from_grid(1,15,2,8,e.x,e.y)
                 
-                c.pos.x = pos_x
-                c.pos.y = pos_y
-            end
-        elseif e.type == "double_click" then
-            local cats = cats_on_grid[e.x][e.y]
-            
-            -- toggle state of cat if its the selected cat
-            if cats ~= nil then
-                for i = 1, #cats do
-                    if cats[i] == selected_cat then
-                        grooveCats[cats[i]].enabled = not grooveCats[cats[i]].enabled
-                        break
+                if catIndex >= 0 then -- select the cat
+                    select_cat(catIndex)
+                else -- move selected cat
+                    local pos_x, pos_y = get_pos_from_grid(1,15,2,8,e.x,e.y)
+                    
+                    c.pos.x = pos_x
+                    c.pos.y = pos_y
+                end
+            elseif e.type == "double_click" then
+                local cats = cats_on_grid[e.x][e.y]
+                
+                -- toggle state of cat if its the selected cat
+                if cats ~= nil then
+                    for i = 1, #cats do
+                        if cats[i] == selected_cat then
+                            grooveCats[cats[i]].enabled = not grooveCats[cats[i]].enabled
+                            break
+                        end
                     end
                 end
             end
@@ -1172,176 +1172,188 @@ end
 settings.soundout.grid_event = function(e)
     grid_event_cat_selection(e)
     
-    if e.y == 1 and e.x <= #settings.soundout.event_modes and e.type == "press" then
-        settings.soundout.sound_event_ui = settings.soundout.event_modes[e.x]
-        show_overlay_message(settings.soundout.event_modes[e.x])
-    end
-    
-    local c = getCurrentCat()
-    local ui = settings.soundout.sound_event_ui
-    
-    if ui == "launch" then
-        if e.type == "press" then
-            if e.y == 2 and e.x == 1 then 
-                c.launch_synth = 0
-                show_overlay_message("Launch Synth", "Off")
-            elseif e.y == 3 and e.x <= SYNTH_COUNT then
-                c.launch_synth = e.x
-                show_overlay_message("Launch Synth", c.launch_synth)
-            elseif e.y == 4 and e.x == 1 then 
-                c.launch_midi = 0
-                show_overlay_message("Launch Midi", "Off")
-            elseif e.y == 5 and e.x <= 8 then
-                c.launch_midi = e.x
-                show_overlay_message("Launch Midi", c.launch_midi)
-            elseif e.y == 6 and e.x <= 8 then
-                c.launch_midi = e.x + 8
-                show_overlay_message("Launch Midi", c.launch_midi)
-            end
+    if ui_mode == "cat" then
+        if e.x <= 8 and e.type == "press" then
+            cat_grid_event(e)
         end
-    elseif ui == "bounce" then
-        if e.type == "press" then
-            if e.y == 2 and e.x == 1 then 
-                c.bounce_synth = 0
-                show_overlay_message("Bounce Synth", "Off")
-            elseif e.y == 3 and e.x <= SYNTH_COUNT then
-                c.bounce_synth = e.x
-                show_overlay_message("Bounce Synth", c.bounce_synth)
-            elseif e.y == 4 and e.x == 1 then 
-                c.bounce_midi = 0
-                show_overlay_message("Bounce Midi", "Off")
-            elseif e.y == 5 and e.x <= 8 then
-                c.bounce_midi = e.x
-                show_overlay_message("Bounce Midi", c.bounce_midi)
-            elseif e.y == 6 and e.x <= 8 then
-                c.bounce_midi = e.x + 8
-                show_overlay_message("Bounce Midi", c.bounce_midi)
-            end
-        end
-    elseif ui == "collision" then
-        if e.type == "press" then
-            if e.y == 2 and e.x == 1 then 
-                c.collision_synth = 0
-                show_overlay_message("Collision Synth", "Off")
-            elseif e.y == 3 and e.x <= SYNTH_COUNT then
-                c.collision_synth = e.x
-                show_overlay_message("Collision Synth", c.collision_synth)
-            elseif e.y == 4 and e.x == 1 then 
-                c.collision_midi = 0
-                show_overlay_message("Collision Midi", "Off")
-            elseif e.y == 5 and e.x <= 8 then
-                c.collision_midi = e.x
-                show_overlay_message("Collision Midi", c.collision_midi)
-            elseif e.y == 6 and e.x <= 8 then
-                c.collision_midi = e.x + 8
-                show_overlay_message("Collision Midi", c.collision_midi)
-            end
-        end
-    end
-    
-    if e.type == "press" and e.y == 8 and e.x < 16 then
-        -- c.probability = util.linlin(1, 16, 0, 100, e.x)
+    elseif ui_mode == "main" then
         
-        if e.x == 1 and c.probability > 0 then
-            c.probability = 0
-        else
-            c.probability = util.round(e.x * (100.0 / 15.0))
+        if e.y == 1 and e.x <= #settings.soundout.event_modes and e.type == "press" then
+            settings.soundout.sound_event_ui = settings.soundout.event_modes[e.x]
+            show_overlay_message(settings.soundout.event_modes[e.x])
         end
         
-        show_overlay_message("Probability", c.probability)
-    end
-    
-    -- Sync Rates
-    if e.type == "press" and e.x > 8 and e.x < 16 and e.y > 1 and e.y - 1 <= #GrooveCat.SYNC_RATES then
-        local gcatIndex = e.x - 8
-        grooveCats[gcatIndex]:changeSyncMode(e.y - 1)
-        show_overlay_message("Sync", GrooveCat.SYNC_RATES[grooveCats[gcatIndex].syncMode])
+        local c = getCurrentCat()
+        local ui = settings.soundout.sound_event_ui
+        
+        if ui == "launch" then
+            if e.type == "press" then
+                if e.y == 2 and e.x == 1 then 
+                    c.launch_synth = 0
+                    show_overlay_message("Launch Synth", "Off")
+                elseif e.y == 3 and e.x <= SYNTH_COUNT then
+                    c.launch_synth = e.x
+                    show_overlay_message("Launch Synth", c.launch_synth)
+                elseif e.y == 4 and e.x == 1 then 
+                    c.launch_midi = 0
+                    show_overlay_message("Launch Midi", "Off")
+                elseif e.y == 5 and e.x <= 8 then
+                    c.launch_midi = e.x
+                    show_overlay_message("Launch Midi", c.launch_midi)
+                elseif e.y == 6 and e.x <= 8 then
+                    c.launch_midi = e.x + 8
+                    show_overlay_message("Launch Midi", c.launch_midi)
+                end
+            end
+        elseif ui == "bounce" then
+            if e.type == "press" then
+                if e.y == 2 and e.x == 1 then 
+                    c.bounce_synth = 0
+                    show_overlay_message("Bounce Synth", "Off")
+                elseif e.y == 3 and e.x <= SYNTH_COUNT then
+                    c.bounce_synth = e.x
+                    show_overlay_message("Bounce Synth", c.bounce_synth)
+                elseif e.y == 4 and e.x == 1 then 
+                    c.bounce_midi = 0
+                    show_overlay_message("Bounce Midi", "Off")
+                elseif e.y == 5 and e.x <= 8 then
+                    c.bounce_midi = e.x
+                    show_overlay_message("Bounce Midi", c.bounce_midi)
+                elseif e.y == 6 and e.x <= 8 then
+                    c.bounce_midi = e.x + 8
+                    show_overlay_message("Bounce Midi", c.bounce_midi)
+                end
+            end
+        elseif ui == "collision" then
+            if e.type == "press" then
+                if e.y == 2 and e.x == 1 then 
+                    c.collision_synth = 0
+                    show_overlay_message("Collision Synth", "Off")
+                elseif e.y == 3 and e.x <= SYNTH_COUNT then
+                    c.collision_synth = e.x
+                    show_overlay_message("Collision Synth", c.collision_synth)
+                elseif e.y == 4 and e.x == 1 then 
+                    c.collision_midi = 0
+                    show_overlay_message("Collision Midi", "Off")
+                elseif e.y == 5 and e.x <= 8 then
+                    c.collision_midi = e.x
+                    show_overlay_message("Collision Midi", c.collision_midi)
+                elseif e.y == 6 and e.x <= 8 then
+                    c.collision_midi = e.x + 8
+                    show_overlay_message("Collision Midi", c.collision_midi)
+                end
+            end
+        end
+        
+        if e.type == "press" and e.y == 8 and e.x < 16 then
+            -- c.probability = util.linlin(1, 16, 0, 100, e.x)
+            
+            if e.x == 1 and c.probability > 0 then
+                c.probability = 0
+            else
+                c.probability = util.round(e.x * (100.0 / 15.0))
+            end
+            
+            show_overlay_message("Probability", c.probability)
+        end
+        
+        -- Sync Rates
+        if e.type == "press" and e.x > 8 and e.x < 16 and e.y > 1 and e.y - 1 <= #GrooveCat.SYNC_RATES then
+            local gcatIndex = e.x - 8
+            grooveCats[gcatIndex]:changeSyncMode(e.y - 1)
+            show_overlay_message("Sync", GrooveCat.SYNC_RATES[grooveCats[gcatIndex].syncMode])
+        end
     end
 end
 
 settings.soundout.grid_redraw = function()
+    
     grid_draw_cat_selection()
     
-    local ledOn = 10
-    local ledOff = 5
-    
-    for x = 1, #settings.soundout.event_modes do
-        g:led(x, 1, settings.soundout.event_modes[x] == settings.soundout.sound_event_ui and ledOn or ledOff)
-    end
-    
-    local c = getCurrentCat()
-    local ui = settings.soundout.sound_event_ui
-    
-    if ui == "launch" then
-        if c.launch_synth == 0 then g:led(1, 2, ledOn) end
+    if ui_mode == "main" then
+        local ledOn = 10
+        local ledOff = 5
         
-        for x = 1, SYNTH_COUNT do
-            g:led(x, 3, c.launch_synth == x and ledOn or ledOff)
+        for x = 1, #settings.soundout.event_modes do
+            g:led(x, 1, settings.soundout.event_modes[x] == settings.soundout.sound_event_ui and ledOn or ledOff)
         end
         
-        if c.launch_midi == 0 then g:led(1, 4, ledOn) end
+        local c = getCurrentCat()
+        local ui = settings.soundout.sound_event_ui
         
-        for x = 1, 8 do
-            g:led(x, 5, c.launch_midi == x and ledOn or ledOff)
+        if ui == "launch" then
+            if c.launch_synth == 0 then g:led(1, 2, ledOn) end
             
-            g:led(x, 6, c.launch_midi == x + 8 and ledOn or ledOff)
-        end
-    elseif ui == "bounce" then
-        if c.bounce_synth == 0 then g:led(1, 2, ledOn) end
-        
-        for x = 1, SYNTH_COUNT do
-            g:led(x, 3, c.bounce_synth == x and ledOn or ledOff)
-        end
-        
-        if c.bounce_midi == 0 then g:led(1, 4, ledOn) end
-        
-        for x = 1, 8 do
-            g:led(x, 5, c.bounce_midi == x and ledOn or ledOff)
+            for x = 1, SYNTH_COUNT do
+                g:led(x, 3, c.launch_synth == x and ledOn or ledOff)
+            end
             
-            g:led(x, 6, c.bounce_midi == x + 8 and ledOn or ledOff)
-        end
-    elseif ui == "collision" then
-        if c.collision_synth == 0 then g:led(1, 2, ledOn) end
-        
-        for x = 1, SYNTH_COUNT do
-            g:led(x, 3, c.collision_synth == x and ledOn or ledOff)
-        end
-        
-        if c.collision_midi == 0 then g:led(1, 4, ledOn) end
-        
-        for x = 1, 8 do
-            g:led(x, 5, c.collision_midi == x and ledOn or ledOff)
+            if c.launch_midi == 0 then g:led(1, 4, ledOn) end
             
-            g:led(x, 6, c.collision_midi == x + 8 and ledOn or ledOff)
+            for x = 1, 8 do
+                g:led(x, 5, c.launch_midi == x and ledOn or ledOff)
+                
+                g:led(x, 6, c.launch_midi == x + 8 and ledOn or ledOff)
+            end
+        elseif ui == "bounce" then
+            if c.bounce_synth == 0 then g:led(1, 2, ledOn) end
+            
+            for x = 1, SYNTH_COUNT do
+                g:led(x, 3, c.bounce_synth == x and ledOn or ledOff)
+            end
+            
+            if c.bounce_midi == 0 then g:led(1, 4, ledOn) end
+            
+            for x = 1, 8 do
+                g:led(x, 5, c.bounce_midi == x and ledOn or ledOff)
+                
+                g:led(x, 6, c.bounce_midi == x + 8 and ledOn or ledOff)
+            end
+        elseif ui == "collision" then
+            if c.collision_synth == 0 then g:led(1, 2, ledOn) end
+            
+            for x = 1, SYNTH_COUNT do
+                g:led(x, 3, c.collision_synth == x and ledOn or ledOff)
+            end
+            
+            if c.collision_midi == 0 then g:led(1, 4, ledOn) end
+            
+            for x = 1, 8 do
+                g:led(x, 5, c.collision_midi == x and ledOn or ledOff)
+                
+                g:led(x, 6, c.collision_midi == x + 8 and ledOn or ledOff)
+            end
         end
-    end
-    
-    -- probabilities
-    
-    -- for x = 9, 15 do
-    --     local gcat = grooveCats[x-8]
-    
-    --     local grid_prob = util.linlin(0, 100, 0, 7, gcat.probability)
-    
-    --     for y = 1, grid_prob do
-    --         g:led(x, 9 - y, gcat.enabled and 10 or 2)
-    --     end
-    -- end
-    
-    local grid_prob = util.round(c.probability / (100.0 / 15.0))
-    -- local grid_prob = util.linlin(0, 100, 1, 16, c.probability)
-    
-    for x = 1, grid_prob do
-        g:led(x, 8, ledOn)
-    end
-    
-    -- sync Rates
-    for x = 9, 15 do
-        local gcat = grooveCats[x-8]
         
-        for j = 1, #GrooveCat.SYNC_RATES do
-            g:led(x, j + 1, gcat.syncMode == j and 10 or 2)
+        -- probabilities
+        
+        -- for x = 9, 15 do
+        --     local gcat = grooveCats[x-8]
+        
+        --     local grid_prob = util.linlin(0, 100, 0, 7, gcat.probability)
+        
+        --     for y = 1, grid_prob do
+        --         g:led(x, 9 - y, gcat.enabled and 10 or 2)
+        --     end
+        -- end
+        
+        local grid_prob = util.round(c.probability / (100.0 / 15.0))
+        -- local grid_prob = util.linlin(0, 100, 1, 16, c.probability)
+        
+        for x = 1, grid_prob do
+            g:led(x, 8, ledOn)
         end
+        
+        -- sync Rates
+        for x = 9, 15 do
+            local gcat = grooveCats[x-8]
+            
+            for j = 1, #GrooveCat.SYNC_RATES do
+                g:led(x, j + 1, gcat.syncMode == j and 10 or 2)
+            end
+        end
+    elseif ui_mode == "cat" then
+        grid_draw_cat_settings()
     end
 end
 
@@ -1446,11 +1458,14 @@ settings.sequencer.grid_redraw = function()
 end
 
 settings.lightshow.grid_redraw = function()
-    grid_draw_scene(1,15,2,8, collision_events_full)
     grid_draw_cat_selection()
+    
+    if ui_mode == "main" then
+        grid_draw_scene(1,15,2,8, collision_events_full)
+    elseif ui_mode == "cat" then
+        grid_draw_cat_settings()
+    end
 end
-
-
 
 -- draws the scene to the grid
 function grid_draw_scene(x_min, x_max, y_min, y_max, collisionEventsTable)
@@ -1658,21 +1673,21 @@ function load_project_params(fullPath)
     print("Load "..fullPath)
     fileIO_active = true
     local file = io.open(fullPath)
-
+    
     if file ~= nil then  
         io.close(file)
         
         load_serialized_table(tab.load(fullPath))
         
         local pathname,filename,ext=string.match(fullPath,"(.-)([^\\/]-%.?([^%.\\/]*))$")
-
+        
         filename = filename:match("(.+)%..+")
         -- local filename = GetFilename(fullPath)
-
+        
         print("pathname "..pathname)
         print("filename "..filename)
         print("ext "..ext)
-
+        
         local pset_path = params_path..filename.."_params.pset"
         
         print("pset_path "..pset_path)
@@ -1699,10 +1714,10 @@ function save_project_params(fileName)
         print("Cannot save. Filename is empty")
         return 
     end
-
+    
     fileIO_active = true
     local save_path = data_path..fileName..".txt"
-
+    
     params:set("FileIO_load", "", true)
     
     params:write(params_path..fileName.."_params.pset")
@@ -1716,7 +1731,7 @@ function save_project_params(fileName)
     show_overlay_message("Saved "..fileName)
     
     redraw()
-
+    
     fileIO_active = false
 end
 
@@ -1724,7 +1739,7 @@ function load_project(projNum)
     if fileIO_active then return end
     projNum = projNum and projNum or 1
     local load_path = data_path..projNum..".txt"
-
+    
     fileIO_active = true
     
     local file = io.open(load_path)
@@ -1743,13 +1758,13 @@ function load_project(projNum)
         settings.fileIO.projNum = projNum
         
         show_overlay_message("Loaded "..projNum)
-
+        
         params:set("FileIO_name", (""..projNum), true)
         params:set("FileIO_load", "", true)
     else
         print("Cannot load, bad path. "..load_path)
     end
-
+    
     fileIO_active = false
 end
 
@@ -1763,13 +1778,13 @@ function save_project(projNum)
     
     -- project_name = saveName
     -- show_temporary_notification(project_name.." saved")
-
+    
     fileIO_active = true
     
     local save_path = data_path..projNum..".txt"
     
     -- print("Save: "..path)
-
+    
     params:set("FileIO_name", (""..projNum), true)
     params:set("FileIO_load", "", true)
     
@@ -1784,7 +1799,7 @@ function save_project(projNum)
     show_overlay_message("Saved "..projNum)
     
     redraw()
-
+    
     fileIO_active = false
 end
 
