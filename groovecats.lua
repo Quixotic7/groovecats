@@ -1,5 +1,5 @@
 -- groovecats
--- v1.3.1 @quixotic7
+-- v1.3.2 @quixotic7
 -- https://norns.community/e/en/authors/quixotic7/groovecats
 --
 -- A weird cat sequencer thing
@@ -1264,6 +1264,9 @@ settings.sequencer.grid_event = function(e)
         elseif e.x == 10 and e.y == 8 and e.z == 1 then
             c:shuffle_loop()
             show_overlay_message("Shuffle")
+        elseif e.x == 11 and e.y == 8 and e.z == 1 then
+            c.autoShuffle = not c.autoShuffle
+            show_overlay_message(c.autoShuffle and "AutoShuffle On" or "AutoShuffle off")
         end
         
         for i, f in pairs(settings.sequencer.faders) do
@@ -1659,15 +1662,20 @@ settings.sequencer.grid_redraw = function()
         for x = 1, 8 do
             if c.bounce_seq.data[x] > 0 then g:led(x, 9 - c.bounce_seq.data[x], 5) end
         end
+
+        local prevSeqPos = c.bounce_seq.pos - 1
+        if prevSeqPos < 1 then prevSeqPos = c.bounce_seq.length end -- use prevPos since pos advances right after note is triggered. 
         
-        if c.bounce_seq.pos > 0 and c.bounce_seq.data[c.bounce_seq.pos] > 0 then
-            g:led(c.bounce_seq.pos, 9-c.bounce_seq.data[c.bounce_seq.pos], 15)
+        if c.bounce_seq.data[prevSeqPos] > 0 then
+            g:led(prevSeqPos, 9-c.bounce_seq.data[prevSeqPos], 15)
         else
-            g:led(c.bounce_seq.pos, 1, 3)
+            g:led(prevSeqPos, 1, 3)
         end
         
         g:led(9,8,10) -- randomize
         g:led(10,8,10) -- shuffle
+
+        g:led(11,8, c.autoShuffle and 15 or 4) -- shuffle
         
         for i, f in pairs(settings.sequencer.faders) do
             f:draw(g)

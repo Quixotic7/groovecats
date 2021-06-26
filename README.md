@@ -122,6 +122,11 @@ system > reset then launch groovecats
 - maybe basic support for the petting zoo. 
 
 ## version notes
+**v1.3.2**
+
+- Added autoshuffle feature that automatically shuffles notes when the playhead is 1 on a launch event. 
+- Added new cat personality, Ninja, that does not launch furballs, but still sends launch events.
+
 **v1.3.1**
 
 - added randomization features. shift[key 1] + key 2 to randomize all. grid[x: 16, y: 7] to randomize page. see updated documentation for details. 
